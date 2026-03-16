@@ -193,8 +193,11 @@ class KeycloakOIDCClient:
         elif isinstance(aud, list):
             aud_values.update(str(value) for value in aud)
 
-        if self.roles_client_id not in aud_values and azp != self.roles_client_id:
-            raise OIDCError("Access token audience mismatch")
+        if self.client_id not in aud_values and azp != self.client_id:
+            raise OIDCError(
+                "Access token audience mismatch "
+                f"(expected client_id={self.client_id}, aud={sorted(aud_values)}, azp={azp})"
+            )
 
         user_sub = id_claims.get("sub")
         username = id_claims.get("preferred_username") or id_claims.get("name") or user_sub

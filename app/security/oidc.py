@@ -116,6 +116,7 @@ class KeycloakOIDCClient:
         *,
         audience: str | None,
         verify_audience: bool,
+        access_token: str | None = None,
     ) -> dict:
         try:
             header = jwt.get_unverified_header(token)
@@ -154,6 +155,7 @@ class KeycloakOIDCClient:
                     audience=audience,
                     issuer=issuer,
                     options=options,
+                    access_token=access_token,
                 )
                 return claims
             except JWTError as exc:
@@ -170,6 +172,7 @@ class KeycloakOIDCClient:
             token_response["id_token"],
             audience=self.client_id,
             verify_audience=True,
+            access_token=token_response["access_token"],
         )
 
         nonce = id_claims.get("nonce")

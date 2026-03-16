@@ -135,19 +135,35 @@ class KeycloakOIDCClient:
         if key is None:
             raise OIDCError("Signing key not found")
 
+        metadata = await self._get_metadata()
+        issuer_candidates: list[str] = [self.issuer_url]
+        metadata_issuer = metadata.get("issuer")
+        if isinstance(metadata_issuer, str):
+            normalized_issuer = metadata_issuer.rstrip("/")
+            if normalized_issuer and normalized_issuer not in issuer_candidates:
+                issuer_candidates.append(normalized_issuer)
+
         options = {"verify_aud": verify_audience}
-        try:
-            claims = jwt.decode(
-                token,
-                key,
-                algorithms=[header.get("alg", "RS256")],
-                audience=audience,
-                issuer=self.issuer_url,
-                options=options,
-            )
-            return claims
-        except JWTError as exc:
-            raise OIDCError("Token verification failed") from exc
+        last_error: JWTError | None = None
+        for issuer in issuer_candidates:
+            try:
+                claims = jwt.decode(
+                    token,
+                    key,
+                    algorithms=[header.get("alg", "RS256")],
+                    audience=audience,
+                    issuer=issuer,
+                    options=options,
+                )
+                return claims
+            except JWTError as exc:
+                last_error = exc
+
+        if last_error is None:
+            raise OIDCError("Token verification failed")
+
+        issuer_info = ", ".join(issuer_candidates)
+        raise OIDCError(f"Token verification failed (issuers tried: {issuer_info}): {last_error}") from last_error
 
     async def verify_and_parse(self, token_response: dict, expected_nonce: str) -> PrincipalData:
         id_claims = await self._decode_token(

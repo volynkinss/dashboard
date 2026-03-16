@@ -110,6 +110,33 @@ class KeycloakOIDCClient:
 
         return data
 
+    async def _get_userinfo(self, access_token: str) -> dict:
+        metadata = await self._get_metadata()
+        userinfo_endpoint = metadata.get("userinfo_endpoint")
+        if not isinstance(userinfo_endpoint, str) or not userinfo_endpoint:
+            return {}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    userinfo_endpoint,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data if isinstance(data, dict) else {}
+        except (httpx.HTTPError, ValueError):
+            return {}
+
+    @staticmethod
+    def _claim_to_string_set(raw_claim: object) -> set[str]:
+        if isinstance(raw_claim, str):
+            claim = raw_claim.strip()
+            return {claim} if claim else set()
+        if isinstance(raw_claim, list):
+            return {str(value).strip() for value in raw_claim if isinstance(value, str) and str(value).strip()}
+        return set()
+
     async def _decode_token(
         self,
         token: str,
@@ -222,8 +249,11 @@ class KeycloakOIDCClient:
         raw_groups = access_claims.get(group_claim_name)
         if raw_groups is None:
             raw_groups = id_claims.get(group_claim_name)
+        if raw_groups is None:
+            userinfo_claims = await self._get_userinfo(token_response["access_token"])
+            raw_groups = userinfo_claims.get(group_claim_name)
 
-        groups = {str(value) for value in raw_groups if isinstance(value, str)} if isinstance(raw_groups, list) else set()
+        groups = self._claim_to_string_set(raw_groups)
 
         if self.settings.keycloak_groups_prefix:
             prefix = self.settings.keycloak_groups_prefix

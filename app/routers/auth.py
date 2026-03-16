@@ -168,6 +168,13 @@ async def login(
     return response
 
 
+@router.get("/post-logout")
+def post_logout_landing(next: str | None = Query(default="/")):
+    safe_next = _sanitize_next_path(next)
+    query = urlencode({"next": safe_next, "force_login": "1"})
+    return RedirectResponse(url=f"/auth/login?{query}", status_code=303)
+
+
 @router.get("/callback")
 async def callback(
     request: Request,
@@ -236,14 +243,19 @@ async def callback(
 @router.post("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
+    post_logout_target = str(request.url_for("post_logout_landing"))
 
     session_id = request.cookies.get(settings.session_cookie_name)
     user = get_authenticated_session(db, session_id)
     if user is None:
-        if settings.is_mock_auth_mode:
-            return RedirectResponse(url="/", status_code=303)
-        query = urlencode({"next": request.url.path})
-        return RedirectResponse(url=f"/auth/login?{query}", status_code=303)
+        redirect_target = "/" if settings.is_mock_auth_mode else post_logout_target
+        response = RedirectResponse(url=redirect_target, status_code=303)
+        response.delete_cookie(
+            key=settings.session_cookie_name,
+            domain=settings.session_cookie_domain,
+            path="/",
+        )
+        return response
 
     form = await request.form()
     csrf_token = form.get("csrf_token")
@@ -256,12 +268,11 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     if settings.is_mock_auth_mode:
         logout_target = "/"
     else:
-        force_login_target = f"{request.url_for('login')}?{urlencode({'next': '/', 'force_login': '1'})}"
         oidc_client = get_oidc_client()
         try:
-            logout_target = await oidc_client.build_logout_url(post_logout_redirect_uri=force_login_target)
+            logout_target = await oidc_client.build_logout_url(post_logout_redirect_uri=post_logout_target)
         except OIDCError:
-            logout_target = force_login_target
+            logout_target = post_logout_target
 
     response = RedirectResponse(url=logout_target, status_code=303)
     response.delete_cookie(

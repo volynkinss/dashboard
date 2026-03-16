@@ -246,14 +246,12 @@ class KeycloakOIDCClient:
         roles = {str(value) for value in raw_roles if isinstance(value, str)}
 
         group_claim_name = self.settings.keycloak_groups_claim
-        raw_groups = access_claims.get(group_claim_name)
-        if raw_groups is None:
-            raw_groups = id_claims.get(group_claim_name)
-        if raw_groups is None:
+        groups = self._claim_to_string_set(access_claims.get(group_claim_name))
+        if not groups:
+            groups = self._claim_to_string_set(id_claims.get(group_claim_name))
+        if not groups:
             userinfo_claims = await self._get_userinfo(token_response["access_token"])
-            raw_groups = userinfo_claims.get(group_claim_name)
-
-        groups = self._claim_to_string_set(raw_groups)
+            groups = self._claim_to_string_set(userinfo_claims.get(group_claim_name))
 
         if self.settings.keycloak_groups_prefix:
             prefix = self.settings.keycloak_groups_prefix

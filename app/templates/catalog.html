@@ -1,10 +1,25 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="topbar">
+    <div class="topbar-title">{{ app_name }}</div>
+    <div class="topbar-actions">
+        <div class="lang-switch">
+            <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}">RU</a>
+            <a href="{{ lang_en_url }}" class="lang-link {% if lang == 'en' %}lang-link-active{% endif %}">EN</a>
+        </div>
+        <span class="topbar-user">{{ username }}</span>
+        <form method="post" action="/auth/logout" class="logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="logout-button">{{ ui.sign_out }}</button>
+        </form>
+    </div>
+</div>
+
 <div class="search-row">
     <div class="search-left">
-        <label for="serviceSearch">Search</label>
-        <input id="serviceSearch" type="text" placeholder="Type to filter services">
+        <label for="serviceSearch">{{ ui.search_label }}</label>
+        <input id="serviceSearch" type="text" placeholder="{{ ui.search_placeholder }}">
     </div>
 </div>
 
@@ -40,8 +55,8 @@
 </div>
 {% else %}
 <section class="empty-state">
-    <h2>No services available</h2>
-    <p>Your account has no granted shortcuts yet.</p>
+    <h2>{{ ui.no_services_title }}</h2>
+    <p>{{ ui.no_services_body }}</p>
 </section>
 {% endif %}
 {% endblock %}

@@ -26,6 +26,84 @@ body {
     padding: 14px 16px 20px;
 }
 
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.topbar-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #dbeefe;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.lang-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lang-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    border-radius: 6px;
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    background: rgba(14, 80, 132, 0.18);
+}
+
+.lang-link:hover {
+    border-color: rgba(255, 255, 255, 0.52);
+    background: rgba(14, 80, 132, 0.42);
+}
+
+.lang-link-active {
+    border-color: rgba(255, 255, 255, 0.8);
+    background: rgba(14, 80, 132, 0.62);
+}
+
+.topbar-user {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.logout-form {
+    margin: 0;
+}
+
+.logout-button {
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    background: rgba(14, 80, 132, 0.32);
+    color: var(--text-main);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.logout-button:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(14, 80, 132, 0.56);
+}
+
 .search-row {
     display: flex;
     align-items: center;
@@ -62,7 +140,7 @@ body {
 .sections-grid {
     display: grid;
     gap: 16px;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    grid-template-columns: 1fr;
 }
 
 .section-card {
@@ -189,6 +267,16 @@ body {
 }
 
 @media (max-width: 900px) {
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .topbar-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
     .search-row {
         flex-direction: column;
         align-items: flex-start;

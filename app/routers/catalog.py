@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
+from app.i18n import LANG_COOKIE_NAME, get_messages, normalize_language
 from app.security.session_store import get_authenticated_session
 from app.services.access_control import AccessControlService
 from app.services.audit import write_audit_event
@@ -21,14 +22,18 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 @router.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
+    selected_lang = normalize_language(request.cookies.get(LANG_COOKIE_NAME))
+    ui = get_messages(selected_lang)
+
+    current_path = request.url.path
+    if request.url.query:
+        current_path = f"{current_path}?{request.url.query}"
+
     session_id = request.cookies.get(settings.session_cookie_name)
     user = get_authenticated_session(db, session_id)
 
     if user is None:
-        next_path = request.url.path
-        if request.url.query:
-            next_path = f"{next_path}?{request.url.query}"
-        query = urlencode({"next": next_path})
+        query = urlencode({"next": current_path})
         return RedirectResponse(url=f"/auth/login?{query}", status_code=303)
 
     access_control = AccessControlService()
@@ -44,5 +49,9 @@ def home(request: Request, db: Session = Depends(get_db)):
             "username": user.username,
             "sections": sections,
             "csrf_token": user.csrf_token,
+            "lang": selected_lang,
+            "ui": ui,
+            "lang_ru_url": f"/lang/ru?{urlencode({'next': current_path})}",
+            "lang_en_url": f"/lang/en?{urlencode({'next': current_path})}",
         },
     )

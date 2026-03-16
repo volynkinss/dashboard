@@ -12,6 +12,7 @@ from starlette.responses import Response
 from app.config import get_settings
 from app.routers.auth import router as auth_router
 from app.routers.catalog import router as catalog_router
+from app.routers.i18n import router as i18n_router
 
 settings = get_settings()
 
@@ -44,3 +45,4 @@ def healthz() -> JSONResponse:
 
 app.include_router(auth_router)
 app.include_router(catalog_router)
+app.include_router(i18n_router)

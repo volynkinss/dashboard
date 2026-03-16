@@ -111,6 +111,7 @@ async def login(
     request: Request,
     next: str | None = Query(default=None),
     mock_user: str | None = Query(default=None),
+    force_login: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     settings = get_settings()
@@ -133,7 +134,11 @@ async def login(
     nonce = secrets.token_urlsafe(32)
 
     try:
-        authorization_url = await oidc_client.build_authorization_url(state=state, nonce=nonce)
+        authorization_url = await oidc_client.build_authorization_url(
+            state=state,
+            nonce=nonce,
+            prompt="login" if force_login else None,
+        )
     except OIDCError as exc:
         write_audit_event(
             db,
@@ -251,11 +256,12 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     if settings.is_mock_auth_mode:
         logout_target = "/"
     else:
+        force_login_target = f"{request.url_for('login')}?{urlencode({'next': '/', 'force_login': '1'})}"
         oidc_client = get_oidc_client()
         try:
-            logout_target = await oidc_client.build_logout_url()
+            logout_target = await oidc_client.build_logout_url(post_logout_redirect_uri=force_login_target)
         except OIDCError:
-            logout_target = settings.keycloak_post_logout_redirect_uri
+            logout_target = force_login_target
 
     response = RedirectResponse(url=logout_target, status_code=303)
     response.delete_cookie(

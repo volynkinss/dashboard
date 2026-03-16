@@ -64,7 +64,7 @@ class KeycloakOIDCClient:
 
         return self._jwks
 
-    async def build_authorization_url(self, state: str, nonce: str) -> str:
+    async def build_authorization_url(self, state: str, nonce: str, prompt: str | None = None) -> str:
         metadata = await self._get_metadata()
         params = {
             "response_type": "code",
@@ -74,17 +74,20 @@ class KeycloakOIDCClient:
             "state": state,
             "nonce": nonce,
         }
+        if prompt:
+            params["prompt"] = prompt
         return f"{metadata['authorization_endpoint']}?{urlencode(params)}"
 
-    async def build_logout_url(self) -> str:
+    async def build_logout_url(self, *, post_logout_redirect_uri: str | None = None) -> str:
         metadata = await self._get_metadata()
         endpoint = metadata.get("end_session_endpoint")
+        redirect_uri = post_logout_redirect_uri or self.settings.keycloak_post_logout_redirect_uri
         if not endpoint:
-            return self.settings.keycloak_post_logout_redirect_uri
+            return redirect_uri
 
         params = {
             "client_id": self.client_id,
-            "post_logout_redirect_uri": self.settings.keycloak_post_logout_redirect_uri,
+            "post_logout_redirect_uri": redirect_uri,
         }
         return f"{endpoint}?{urlencode(params)}"
 

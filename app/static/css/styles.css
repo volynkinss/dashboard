@@ -1,0 +1,216 @@
+:root {
+    --bg-top: #0b5a92;
+    --bg-bottom: #0a5388;
+    --panel: #0a4675;
+    --panel-soft: #0d4f86;
+    --panel-border: #1b679c;
+    --text-main: #f4f8fc;
+    --text-muted: #b3d4ee;
+    --accent: #7ec2ff;
+    --input-bg: #21608f;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    color: var(--text-main);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    min-height: 100vh;
+}
+
+.container {
+    padding: 14px 16px 20px;
+}
+
+.search-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.search-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-row label {
+    font-size: 14px;
+}
+
+.search-row input {
+    width: 320px;
+    max-width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: var(--input-bg);
+    color: var(--text-main);
+    border-radius: 8px;
+    padding: 8px 12px;
+    outline: none;
+}
+
+.search-row input::placeholder {
+    color: #9dc3dd;
+}
+
+.sections-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.section-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+    padding: 10px 12px;
+}
+
+.section-wide {
+    grid-column: 1 / -1;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 30px;
+    letter-spacing: 0.2px;
+    color: #dbeefe;
+}
+
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.service-cell {
+    min-height: 82px;
+}
+
+.service-link,
+.clock-widget {
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    color: var(--text-main);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+}
+
+.service-link:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(14, 80, 132, 0.28);
+}
+
+.service-title {
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.2;
+    color: #dbeefe;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.service-icon {
+    margin-top: 4px;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.84);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #ffffff;
+}
+
+.clock-widget {
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(7, 58, 95, 0.35);
+}
+
+.clock-widget .service-title {
+    text-align: left;
+    font-size: 13px;
+}
+
+.clock-time {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 24px;
+    line-height: 1;
+    color: #f6fbff;
+}
+
+.clock-date {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.empty-state {
+    background: rgba(9, 53, 86, 0.48);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.empty-state h2 {
+    margin: 0 0 8px;
+}
+
+@media (max-width: 900px) {
+    .search-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .search-left {
+        width: 100%;
+    }
+
+    .search-row input {
+        width: 100%;
+    }
+
+    .sections-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .section-header h2 {
+        font-size: 20px;
+    }
+
+    .service-title {
+        font-size: 13px;
+    }
+}

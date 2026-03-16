@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-catalog}
+      POSTGRES_USER: ${POSTGRES_USER:-catalog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-catalog}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-catalog} -d ${POSTGRES_DB:-catalog}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: ${APP_NAME:-Secure Service Catalog}
+      APP_ENV: ${APP_ENV:-development}
+      SECRET_KEY: ${SECRET_KEY:-replace-this-secret}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://catalog:catalog@db:5432/catalog}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-catalog_session}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
+      AUTH_MODE: ${AUTH_MODE:-keycloak}
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/master}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-catalog}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-replace-this-client-secret}
+      KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:8000/auth/callback}
+      KEYCLOAK_POST_LOGOUT_REDIRECT_URI: ${KEYCLOAK_POST_LOGOUT_REDIRECT_URI:-http://localhost:8000/}
+      KEYCLOAK_SCOPES: ${KEYCLOAK_SCOPES:-openid profile email groups}
+      KEYCLOAK_GROUPS_CLAIM: ${KEYCLOAK_GROUPS_CLAIM:-groups}
+      KEYCLOAK_GROUPS_PREFIX: ${KEYCLOAK_GROUPS_PREFIX:-/}
+      KEYCLOAK_ROLES_CLIENT_ID: ${KEYCLOAK_ROLES_CLIENT_ID:-catalog}
+      DASHY_CONFIG_PATH: ${DASHY_CONFIG_PATH:-/app/data/dashy.yaml}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1,0.0.0.0,::1,host.docker.internal}
+      AUDIT_ENABLED: ${AUDIT_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data:ro
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m scripts.seed_from_dashy --config $${DASHY_CONFIG_PATH} --deactivate-missing &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:

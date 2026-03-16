@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="search-row">
+    <div class="search-left">
+        <label for="serviceSearch">Search</label>
+        <input id="serviceSearch" type="text" placeholder="Type to filter services">
+    </div>
+</div>
+
+{% if sections %}
+<div class="sections-grid" id="sectionsGrid">
+    {% for section in sections %}
+    <section class="section-card {% if section.services|length > 14 %}section-wide{% endif %}" data-section>
+        <header class="section-header">
+            <h2>{{ section.name }}</h2>
+        </header>
+
+        <div class="items-grid">
+            {% for service in section.services %}
+            {% set is_clock = service.url.startswith('clock://') %}
+            <div class="service-cell" data-service data-text="{{ (service.name ~ ' ' ~ (service.description or '')) | lower }}">
+                {% if is_clock %}
+                <div class="clock-widget" data-timezone="{{ service.url | replace('clock://', '') }}">
+                    <span class="service-title">{{ service.name }}</span>
+                    <span class="clock-time">--:--:--</span>
+                    <span class="clock-date">--</span>
+                </div>
+                {% else %}
+                <a class="service-link" href="{{ service.url }}" target="_blank" rel="noopener noreferrer" title="{{ service.description or service.name }}">
+                    <span class="service-icon">{{ service.icon_emoji or service.name[0] }}</span>
+                    <span class="service-title">{{ service.name }}</span>
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% else %}
+<section class="empty-state">
+    <h2>No services available</h2>
+    <p>Your account has no granted shortcuts yet.</p>
+</section>
+{% endif %}
+{% endblock %}

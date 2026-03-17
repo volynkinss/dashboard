@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .DS_Store
 docker-compose.yml
+postgres_data/
+dashy.yaml

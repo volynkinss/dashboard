@@ -3,7 +3,7 @@ from __future__ import annotations
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
@@ -39,6 +39,13 @@ def _sanitize_next_path(next_path: str | None) -> str:
     if next_path.startswith("//"):
         return "/"
     return next_path
+
+
+def _with_force_login_query(url: str) -> str:
+    parsed = urlsplit(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["force_login"] = "1"
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
 
 
 def _set_session_cookie(response: RedirectResponse, *, settings: Settings, session_id: str, ttl_seconds: int) -> None:
@@ -200,8 +207,10 @@ def post_logout_landing(next: str | None = Query(default="/")):
 @router.get("/callback")
 async def callback(
     request: Request,
-    state: str,
-    code: str,
+    state: str | None = None,
+    code: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
     db: Session = Depends(get_db),
 ):
     settings = get_settings()
@@ -210,6 +219,27 @@ async def callback(
 
     serializer = _build_login_state_serializer()
     oidc_client = get_oidc_client()
+
+    if error:
+        details = {"error": error}
+        if error_description:
+            details["error_description"] = error_description
+        write_audit_event(
+            db,
+            event_type="login_failure",
+            request=request,
+            details=details,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"OIDC authorization failed: {error}",
+        )
+
+    if not state or not code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OIDC callback is missing required parameters",
+        )
 
     signed_cookie = request.cookies.get(settings.oidc_temp_cookie_name)
     if not signed_cookie:
@@ -275,11 +305,31 @@ async def callback(
 async def logout(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
     force_login_target = f"{request.url_for('login')}?{urlencode({'next': '/', 'force_login': '1'})}"
+    default_post_logout_target = f"{request.url_for('post_logout_landing')}?{urlencode({'next': '/'})}"
+
+    async def resolve_logout_target() -> str:
+        if settings.is_mock_auth_mode:
+            return "/"
+
+        oidc_client = get_oidc_client()
+        id_token_hint = request.cookies.get(OIDC_ID_TOKEN_COOKIE_NAME)
+        post_logout_redirect_uri = settings.keycloak_post_logout_redirect_uri.strip()
+        if not post_logout_redirect_uri:
+            post_logout_redirect_uri = default_post_logout_target
+        post_logout_redirect_uri = _with_force_login_query(post_logout_redirect_uri)
+
+        try:
+            return await oidc_client.build_logout_url(
+                post_logout_redirect_uri=post_logout_redirect_uri,
+                id_token_hint=id_token_hint,
+            )
+        except OIDCError:
+            return force_login_target
 
     session_id = request.cookies.get(settings.session_cookie_name)
     user = get_authenticated_session(db, session_id)
     if user is None:
-        redirect_target = "/" if settings.is_mock_auth_mode else force_login_target
+        redirect_target = await resolve_logout_target()
         response = RedirectResponse(url=redirect_target, status_code=303)
         response.delete_cookie(
             key=settings.session_cookie_name,
@@ -297,10 +347,7 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     delete_user_session(db, user.session_id)
     write_audit_event(db, event_type="logout", request=request, user=user)
 
-    if settings.is_mock_auth_mode:
-        logout_target = "/"
-    else:
-        logout_target = force_login_target
+    logout_target = await resolve_logout_target()
 
     response = RedirectResponse(url=logout_target, status_code=303)
     response.delete_cookie(

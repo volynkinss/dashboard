@@ -102,6 +102,11 @@ sections:
 
 If one language is missing, the app falls back to available text.
 
+Dashy icons are imported too:
+- `fa ...` values (for example `fa fa-windows fa-2x`) are rendered as Font Awesome icons.
+- URL / path icons (for example `https://.../icon.svg` or `/assets/icon.png`) are rendered as images.
+- `favicon` or `favicon:<url>` is resolved via domain favicon lookup.
+
 ## Keycloak Claim Mapping (Safe Baseline)
 Use client-scoped roles as primary and groups as secondary.
 

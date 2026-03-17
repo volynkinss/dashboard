@@ -4,6 +4,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 if __package__ is None or __package__ == "":
     project_root = Path(__file__).resolve().parents[1]
@@ -36,6 +37,30 @@ ICON_TOKENS = {
 }
 
 SUPPORTED_I18N_KEYS = ("ru", "en")
+FA_DECORATOR_TOKENS = {
+    "fa-lg",
+    "fa-2x",
+    "fa-3x",
+    "fa-4x",
+    "fa-5x",
+    "fa-fw",
+    "fa-ul",
+    "fa-li",
+    "fa-border",
+    "fa-pull-left",
+    "fa-pull-right",
+    "fa-spin",
+    "fa-pulse",
+    "fa-rotate-90",
+    "fa-rotate-180",
+    "fa-rotate-270",
+    "fa-flip-horizontal",
+    "fa-flip-vertical",
+    "fa-stack",
+    "fa-stack-1x",
+    "fa-stack-2x",
+    "fa-inverse",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,6 +105,83 @@ def icon_symbol(icon_value: str | None, title: str) -> str:
                     return normalized[:4].upper()
     letters = re.sub(r"[^A-Za-z0-9]", "", title)
     return (letters[:4] or "APP").upper()
+
+
+def _normalize_fontawesome_classes(icon_value: str) -> str | None:
+    tokens = [token.strip() for token in icon_value.split() if token.strip()]
+    if not tokens:
+        return None
+
+    lowered = [token.lower() for token in tokens]
+    if not any(token == "fa" or token.startswith("fa-") for token in lowered):
+        return None
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        normalized = token.strip()
+        lowered_token = normalized.lower()
+        if lowered_token in FA_DECORATOR_TOKENS:
+            continue
+        if lowered_token not in seen:
+            seen.add(lowered_token)
+            cleaned.append(normalized)
+
+    if not cleaned:
+        return None
+
+    if not any(token.lower() == "fa" for token in cleaned):
+        cleaned.insert(0, "fa")
+    return " ".join(cleaned)
+
+
+def _looks_like_icon_url(value: str) -> bool:
+    lowered = value.lower()
+    if lowered.startswith(("http://", "https://", "/", "data:image/")):
+        return True
+    return bool(re.search(r"\.(svg|png|jpg|jpeg|ico|webp)([?#].*)?$", lowered))
+
+
+def _build_favicon_url(raw_url: str) -> str | None:
+    hostname = urlparse(raw_url).hostname
+    if not hostname:
+        return None
+    return f"https://icons.duckduckgo.com/ip3/{hostname}.ico"
+
+
+def resolve_icon_fields(icon_value: str | None, *, item_url: str, title: str) -> tuple[str, str | None]:
+    icon_code = icon_symbol(icon_value, title)
+    if not isinstance(icon_value, str):
+        return icon_code, None
+
+    raw_value = icon_value.strip()
+    if not raw_value:
+        return icon_code, None
+
+    fa_classes = _normalize_fontawesome_classes(raw_value)
+    if fa_classes:
+        return icon_code, f"fa:{fa_classes}"
+
+    lowered = raw_value.lower()
+    if lowered == "favicon":
+        favicon = _build_favicon_url(item_url)
+        return icon_code, favicon
+
+    if lowered.startswith("favicon:"):
+        target_url = raw_value.split(":", 1)[1].strip()
+        favicon = _build_favicon_url(target_url)
+        return icon_code, favicon
+
+    if lowered.startswith("favicon "):
+        parts = raw_value.split(maxsplit=1)
+        target_url = parts[1].strip() if len(parts) == 2 else ""
+        favicon = _build_favicon_url(target_url)
+        return icon_code, favicon
+
+    if _looks_like_icon_url(raw_value):
+        return icon_code, raw_value
+
+    return icon_code, None
 
 
 def normalize_i18n_map(value: object) -> dict[str, str]:
@@ -178,6 +280,7 @@ def upsert_service(
     description_i18n: dict[str, str] | None,
     url: str,
     icon_code: str,
+    icon_url: str | None,
     sort_order: int,
     allow_all_authenticated: bool,
 ) -> Service:
@@ -190,7 +293,7 @@ def upsert_service(
         existing.description_i18n = description_i18n
         existing.url = url
         existing.icon_emoji = icon_code
-        existing.icon_url = None
+        existing.icon_url = icon_url
         existing.sort_order = sort_order
         existing.allow_all_authenticated = allow_all_authenticated
         existing.is_active = True
@@ -205,7 +308,7 @@ def upsert_service(
         description_i18n=description_i18n,
         url=url,
         icon_emoji=icon_code,
-        icon_url=None,
+        icon_url=icon_url,
         sort_order=sort_order,
         allow_all_authenticated=allow_all_authenticated,
         is_active=True,
@@ -336,6 +439,11 @@ def import_config(config_path: Path, *, deactivate_missing: bool) -> None:
                 group_names = extract_groups(item)
                 allow_all_authenticated = len(group_names) == 0
                 item_description, item_description_i18n = extract_text_and_i18n(item.get("description"))
+                icon_code, icon_url = resolve_icon_fields(
+                    item.get("icon") if isinstance(item.get("icon"), str) else None,
+                    item_url=item_url.strip(),
+                    title=item_title,
+                )
 
                 service = upsert_service(
                     db,
@@ -346,7 +454,8 @@ def import_config(config_path: Path, *, deactivate_missing: bool) -> None:
                     description=item_description,
                     description_i18n=item_description_i18n,
                     url=item_url.strip(),
-                    icon_code=icon_symbol(item.get("icon") if isinstance(item.get("icon"), str) else None, item_title),
+                    icon_code=icon_code,
+                    icon_url=icon_url,
                     sort_order=item_index * 10,
                     allow_all_authenticated=allow_all_authenticated,
                 )

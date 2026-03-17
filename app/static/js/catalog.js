@@ -81,8 +81,66 @@
         window.setInterval(tick, 1000);
     }
 
+    function markBrokenIconImage(img) {
+        var wrapper = img.closest(".service-icon-image-mode");
+        if (wrapper) {
+            wrapper.classList.add("image-failed");
+        }
+    }
+
+    function setupImageIconFallback() {
+        var images = Array.prototype.slice.call(document.querySelectorAll(".service-icon-image-mode .service-icon-image"));
+        images.forEach(function (img) {
+            img.addEventListener("error", function () {
+                markBrokenIconImage(img);
+            });
+            if (img.complete && img.naturalWidth === 0) {
+                markBrokenIconImage(img);
+            }
+        });
+    }
+
+    function detectFontAwesomeLoaded() {
+        var probe = document.createElement("i");
+        probe.className = "fa fa-envelope-o";
+        probe.style.position = "absolute";
+        probe.style.visibility = "hidden";
+        probe.style.pointerEvents = "none";
+        probe.style.left = "-9999px";
+        document.body.appendChild(probe);
+
+        var family = "";
+        try {
+            family = window.getComputedStyle(probe).fontFamily || "";
+        } finally {
+            probe.remove();
+        }
+
+        if (/fontawesome|font awesome/i.test(family)) {
+            document.documentElement.classList.add("icon-fa-ready");
+        }
+    }
+
+    function updateStickyOffset() {
+        var topbar = document.querySelector(".topbar");
+        if (!topbar) {
+            return;
+        }
+        var styles = window.getComputedStyle(topbar);
+        var marginBottom = parseFloat(styles.marginBottom || "0");
+        var extraGap = 10;
+        var offset = Math.ceil(topbar.getBoundingClientRect().height + marginBottom + extraGap);
+        document.documentElement.style.setProperty("--sticky-offset", offset + "px");
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         setupSearch();
         setupClocks();
+        setupImageIconFallback();
+        detectFontAwesomeLoaded();
+        updateStickyOffset();
+        window.setTimeout(detectFontAwesomeLoaded, 300);
+        window.setTimeout(updateStickyOffset, 120);
+        window.addEventListener("resize", updateStickyOffset);
     });
 })();

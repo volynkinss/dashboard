@@ -1,5 +1,47 @@
 {% extends "base.html" %}
 
+{% macro render_section(section, is_time_section=false) %}
+<section class="section-card {% if not is_time_section and section.services|length > 14 %}section-wide{% endif %} {% if is_time_section %}section-time{% endif %}" data-section>
+    <header class="section-header">
+        <h2>{{ section.name }}</h2>
+    </header>
+
+    <div class="items-grid">
+        {% for service in section.services %}
+        {% set is_clock = service.url.startswith('clock://') %}
+        <div class="service-cell" data-service data-text="{{ (service.name ~ ' ' ~ (service.description or '')) | lower }}">
+            {% if is_clock %}
+            <div class="clock-widget" data-timezone="{{ service.url | replace('clock://', '') }}">
+                <span class="service-title">{{ service.name }}</span>
+                <span class="clock-time">--:--:--</span>
+                <span class="clock-date">--</span>
+            </div>
+            {% else %}
+            <a class="service-link" href="{{ service.url }}" target="_blank" rel="noopener noreferrer" title="{{ service.description or service.name }}">
+                {% set icon_value = service.icon_url or '' %}
+                {% set is_fa_icon = icon_value.startswith('fa:') %}
+                {% set is_image_icon = icon_value and not is_fa_icon %}
+                {% set fallback_icon = service.icon_emoji or service.name[0] %}
+                <span class="service-icon {% if is_fa_icon %}service-icon-fa-mode{% elif is_image_icon %}service-icon-image-mode{% else %}service-icon-fallback-mode{% endif %}">
+                    {% if is_fa_icon %}
+                    <i class="service-icon-fa {{ icon_value[3:] }}" aria-hidden="true"></i>
+                    <span class="service-icon-fallback">{{ fallback_icon }}</span>
+                    {% elif is_image_icon %}
+                    <img class="service-icon-image" src="{{ icon_value }}" alt="" loading="lazy" referrerpolicy="no-referrer">
+                    <span class="service-icon-fallback">{{ fallback_icon }}</span>
+                    {% else %}
+                    <span class="service-icon-fallback">{{ fallback_icon }}</span>
+                    {% endif %}
+                </span>
+                <span class="service-title">{{ service.name }}</span>
+            </a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endmacro %}
+
 {% block content %}
 <div class="topbar">
     <div class="topbar-title">{{ app_name }}</div>
@@ -24,34 +66,45 @@
 </div>
 
 {% if sections %}
-<div class="sections-grid" id="sectionsGrid">
-    {% for section in sections %}
-    <section class="section-card {% if section.services|length > 14 %}section-wide{% endif %}" data-section>
-        <header class="section-header">
-            <h2>{{ section.name }}</h2>
-        </header>
-
-        <div class="items-grid">
-            {% for service in section.services %}
-            {% set is_clock = service.url.startswith('clock://') %}
-            <div class="service-cell" data-service data-text="{{ (service.name ~ ' ' ~ (service.description or '')) | lower }}">
-                {% if is_clock %}
-                <div class="clock-widget" data-timezone="{{ service.url | replace('clock://', '') }}">
-                    <span class="service-title">{{ service.name }}</span>
-                    <span class="clock-time">--:--:--</span>
-                    <span class="clock-date">--</span>
-                </div>
-                {% else %}
-                <a class="service-link" href="{{ service.url }}" target="_blank" rel="noopener noreferrer" title="{{ service.description or service.name }}">
-                    <span class="service-icon">{{ service.icon_emoji or service.name[0] }}</span>
-                    <span class="service-title">{{ service.name }}</span>
-                </a>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </section>
+{% set layout = namespace(has_time_section=false) %}
+{% for section in sections %}
+    {% for service in section.services %}
+        {% if service.url.startswith('clock://') %}
+            {% set layout.has_time_section = true %}
+        {% endif %}
     {% endfor %}
+{% endfor %}
+
+<div class="sections-layout {% if layout.has_time_section %}sections-layout-with-time{% endif %}">
+    <div class="sections-grid" id="sectionsGrid">
+        {% for section in sections %}
+        {% set section_meta = namespace(is_time_section=false) %}
+        {% for service in section.services %}
+            {% if service.url.startswith('clock://') %}
+                {% set section_meta.is_time_section = true %}
+            {% endif %}
+        {% endfor %}
+        {% if not section_meta.is_time_section %}
+            {{ render_section(section, false) }}
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    {% if layout.has_time_section %}
+    <aside class="time-column">
+        {% for section in sections %}
+        {% set section_meta = namespace(is_time_section=false) %}
+        {% for service in section.services %}
+            {% if service.url.startswith('clock://') %}
+                {% set section_meta.is_time_section = true %}
+            {% endif %}
+        {% endfor %}
+        {% if section_meta.is_time_section %}
+            {{ render_section(section, true) }}
+        {% endif %}
+        {% endfor %}
+    </aside>
+    {% endif %}
 </div>
 {% else %}
 <section class="empty-state">

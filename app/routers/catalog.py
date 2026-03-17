@@ -28,13 +28,14 @@ def home(request: Request, db: Session = Depends(get_db)):
     current_path = request.url.path
     if request.url.query:
         current_path = f"{current_path}?{request.url.query}"
+    force_login_requested = request.query_params.get("force_login", "").strip().lower() in {"1", "true", "yes", "on"}
 
     session_id = request.cookies.get(settings.session_cookie_name)
     user = get_authenticated_session(db, session_id)
 
     if user is None:
         login_query = {"next": current_path}
-        if session_id and not settings.is_mock_auth_mode:
+        if (force_login_requested or session_id) and not settings.is_mock_auth_mode:
             login_query["force_login"] = "1"
         query = urlencode(login_query)
         return RedirectResponse(url=f"/auth/login?{query}", status_code=303)

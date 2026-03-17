@@ -78,7 +78,12 @@ class KeycloakOIDCClient:
             params["prompt"] = prompt
         return f"{metadata['authorization_endpoint']}?{urlencode(params)}"
 
-    async def build_logout_url(self, *, post_logout_redirect_uri: str | None = None) -> str:
+    async def build_logout_url(
+        self,
+        *,
+        post_logout_redirect_uri: str | None = None,
+        id_token_hint: str | None = None,
+    ) -> str:
         metadata = await self._get_metadata()
         endpoint = metadata.get("end_session_endpoint")
         redirect_uri = post_logout_redirect_uri or self.settings.keycloak_post_logout_redirect_uri
@@ -89,6 +94,8 @@ class KeycloakOIDCClient:
             "client_id": self.client_id,
             "post_logout_redirect_uri": redirect_uri,
         }
+        if id_token_hint:
+            params["id_token_hint"] = id_token_hint
         return f"{endpoint}?{urlencode(params)}"
 
     async def exchange_code_for_tokens(self, code: str) -> dict:

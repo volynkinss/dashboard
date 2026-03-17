@@ -23,6 +23,7 @@ from app.security.session_store import (
 from app.services.audit import write_audit_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+OIDC_ID_TOKEN_COOKIE_NAME = "oidc_id_token_hint"
 
 
 def _build_login_state_serializer() -> URLSafeTimedSerializer:
@@ -48,6 +49,27 @@ def _set_session_cookie(response: RedirectResponse, *, settings: Settings, sessi
         httponly=True,
         secure=settings.session_cookie_secure,
         samesite=settings.session_cookie_samesite,
+        domain=settings.session_cookie_domain,
+        path="/",
+    )
+
+
+def _set_id_token_hint_cookie(response: RedirectResponse, *, settings: Settings, id_token: str, ttl_seconds: int) -> None:
+    response.set_cookie(
+        key=OIDC_ID_TOKEN_COOKIE_NAME,
+        value=id_token,
+        max_age=ttl_seconds,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite=settings.session_cookie_samesite,
+        domain=settings.session_cookie_domain,
+        path="/",
+    )
+
+
+def _delete_id_token_hint_cookie(response: RedirectResponse, *, settings: Settings) -> None:
+    response.delete_cookie(
+        key=OIDC_ID_TOKEN_COOKIE_NAME,
         domain=settings.session_cookie_domain,
         path="/",
     )
@@ -232,6 +254,15 @@ async def callback(
         redirect_target=redirect_target,
         event_type="login_success",
     )
+    ttl_seconds = max(1, int((principal.expires_at - datetime.now(timezone.utc)).total_seconds()))
+    id_token = token_response.get("id_token")
+    if isinstance(id_token, str) and id_token:
+        _set_id_token_hint_cookie(
+            response,
+            settings=settings,
+            id_token=id_token,
+            ttl_seconds=ttl_seconds,
+        )
     response.delete_cookie(
         key=settings.oidc_temp_cookie_name,
         domain=settings.session_cookie_domain,
@@ -255,6 +286,7 @@ async def logout(request: Request, db: Session = Depends(get_db)):
             domain=settings.session_cookie_domain,
             path="/",
         )
+        _delete_id_token_hint_cookie(response, settings=settings)
         return response
 
     form = await request.form()
@@ -268,9 +300,13 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     if settings.is_mock_auth_mode:
         logout_target = "/"
     else:
+        id_token_hint = request.cookies.get(OIDC_ID_TOKEN_COOKIE_NAME)
         oidc_client = get_oidc_client()
         try:
-            logout_target = await oidc_client.build_logout_url(post_logout_redirect_uri=post_logout_target)
+            logout_target = await oidc_client.build_logout_url(
+                post_logout_redirect_uri=post_logout_target,
+                id_token_hint=id_token_hint,
+            )
         except OIDCError:
             logout_target = post_logout_target
 
@@ -280,4 +316,5 @@ async def logout(request: Request, db: Session = Depends(get_db)):
         domain=settings.session_cookie_domain,
         path="/",
     )
+    _delete_id_token_hint_cookie(response, settings=settings)
     return response

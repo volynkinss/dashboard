@@ -82,6 +82,26 @@ If you want to deactivate entities not present in the file:
 python -m scripts.seed_from_dashy --config ./data/dashy.yaml --deactivate-missing
 ```
 
+Multilingual labels are supported for section names, service titles, and descriptions.
+You can keep string values (single language) or use `{ru, en}` objects:
+
+```yaml
+sections:
+  - name:
+      ru: Терминальный доступ
+      en: Terminal Access
+    items:
+      - title:
+          ru: Админ-сервер
+          en: Admin Server
+        description:
+          ru: Подключение к административному серверу
+          en: Connect to the admin server
+        url: https://example.internal
+```
+
+If one language is missing, the app falls back to available text.
+
 ## Keycloak Claim Mapping (Safe Baseline)
 Use client-scoped roles as primary and groups as secondary.
 

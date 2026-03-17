@@ -39,3 +39,31 @@ def normalize_language(value: str | None) -> str:
 def get_messages(lang: str) -> dict[str, str]:
     normalized_lang = normalize_language(lang)
     return MESSAGES[normalized_lang]
+
+
+def localize_text(
+    default_text: str | None,
+    localized_values: dict[str, str] | None,
+    lang: str,
+) -> str | None:
+    normalized_lang = normalize_language(lang)
+
+    if localized_values:
+        for key in (normalized_lang, DEFAULT_LANGUAGE, "en"):
+            value = localized_values.get(key)
+            if isinstance(value, str):
+                stripped = value.strip()
+                if stripped:
+                    return stripped
+
+        for value in localized_values.values():
+            if isinstance(value, str):
+                stripped = value.strip()
+                if stripped:
+                    return stripped
+
+    if isinstance(default_text, str):
+        stripped = default_text.strip()
+        if stripped:
+            return stripped
+    return default_text

@@ -33,11 +33,14 @@ def home(request: Request, db: Session = Depends(get_db)):
     user = get_authenticated_session(db, session_id)
 
     if user is None:
-        query = urlencode({"next": current_path})
+        login_query = {"next": current_path}
+        if session_id and not settings.is_mock_auth_mode:
+            login_query["force_login"] = "1"
+        query = urlencode(login_query)
         return RedirectResponse(url=f"/auth/login?{query}", status_code=303)
 
     access_control = AccessControlService()
-    sections = access_control.get_visible_catalog(db, roles=user.roles, groups=user.groups)
+    sections = access_control.get_visible_catalog(db, roles=user.roles, groups=user.groups, lang=selected_lang)
 
     write_audit_event(db, event_type="catalog_view", request=request, user=user)
 

@@ -274,12 +274,12 @@ async def callback(
 @router.post("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
-    post_logout_target = str(request.url_for("post_logout_landing"))
+    force_login_target = f"{request.url_for('login')}?{urlencode({'next': '/', 'force_login': '1'})}"
 
     session_id = request.cookies.get(settings.session_cookie_name)
     user = get_authenticated_session(db, session_id)
     if user is None:
-        redirect_target = "/" if settings.is_mock_auth_mode else post_logout_target
+        redirect_target = "/" if settings.is_mock_auth_mode else force_login_target
         response = RedirectResponse(url=redirect_target, status_code=303)
         response.delete_cookie(
             key=settings.session_cookie_name,
@@ -300,15 +300,7 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     if settings.is_mock_auth_mode:
         logout_target = "/"
     else:
-        id_token_hint = request.cookies.get(OIDC_ID_TOKEN_COOKIE_NAME)
-        oidc_client = get_oidc_client()
-        try:
-            logout_target = await oidc_client.build_logout_url(
-                post_logout_redirect_uri=post_logout_target,
-                id_token_hint=id_token_hint,
-            )
-        except OIDCError:
-            logout_target = post_logout_target
+        logout_target = force_login_target
 
     response = RedirectResponse(url=logout_target, status_code=303)
     response.delete_cookie(

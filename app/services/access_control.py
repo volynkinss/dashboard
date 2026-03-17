@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.orm import Session
 
+from app.i18n import localize_text
 from app.models.access_group import AccessGroup, AccessGroupSource
 from app.models.category import Category
 from app.models.category_access import CategoryAccess
@@ -56,7 +57,7 @@ class AccessControlService:
         rows = db.execute(stmt).all()
         return {int(row[0]) for row in rows}
 
-    def get_visible_catalog(self, db: Session, *, roles: set[str], groups: set[str]) -> list[CategoryView]:
+    def get_visible_catalog(self, db: Session, *, roles: set[str], groups: set[str], lang: str = "ru") -> list[CategoryView]:
         matched_group_ids = self._resolve_matched_group_ids(db, roles, groups)
 
         category_access_exists = exists(
@@ -108,10 +109,12 @@ class AccessControlService:
 
         services_by_category: dict[int, list[ServiceView]] = defaultdict(list)
         for service in services:
+            localized_name = localize_text(service.name, service.name_i18n, lang) or service.name
+            localized_description = localize_text(service.description, service.description_i18n, lang)
             services_by_category[service.category_id].append(
                 ServiceView(
-                    name=service.name,
-                    description=service.description,
+                    name=localized_name,
+                    description=localized_description,
                     url=service.url,
                     icon_url=service.icon_url,
                     icon_emoji=service.icon_emoji,
@@ -124,9 +127,10 @@ class AccessControlService:
             if not category_services:
                 continue
 
+            localized_category_name = localize_text(category.name, category.name_i18n, lang) or category.name
             result.append(
                 CategoryView(
-                    name=category.name,
+                    name=localized_category_name,
                     slug=category.slug,
                     services=category_services,
                 )

@@ -35,6 +35,8 @@ ICON_TOKENS = {
     "clock": "CLK",
 }
 
+SUPPORTED_I18N_KEYS = ("ru", "en")
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import Dashy YAML into SQL tables")
@@ -80,6 +82,38 @@ def icon_symbol(icon_value: str | None, title: str) -> str:
     return (letters[:4] or "APP").upper()
 
 
+def normalize_i18n_map(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+
+    result: dict[str, str] = {}
+    for raw_key, raw_text in value.items():
+        if not isinstance(raw_key, str) or not isinstance(raw_text, str):
+            continue
+        key = raw_key.strip().lower()
+        text = raw_text.strip()
+        if key in SUPPORTED_I18N_KEYS and text:
+            result[key] = text
+    return result
+
+
+def extract_text_and_i18n(value: object) -> tuple[str | None, dict[str, str] | None]:
+    if isinstance(value, str):
+        text = value.strip()
+        return (text if text else None), None
+
+    i18n_map = normalize_i18n_map(value)
+    if not i18n_map:
+        return None, None
+
+    for key in ("ru", "en"):
+        text = i18n_map.get(key)
+        if text:
+            return text, i18n_map
+    first_value = next(iter(i18n_map.values()))
+    return first_value, i18n_map
+
+
 def get_or_create_access_group(db, group_name: str) -> AccessGroup:
     existing = db.scalar(
         select(AccessGroup).where(
@@ -101,10 +135,18 @@ def get_or_create_access_group(db, group_name: str) -> AccessGroup:
     return item
 
 
-def upsert_category(db, *, slug: str, name: str, sort_order: int) -> Category:
+def upsert_category(
+    db,
+    *,
+    slug: str,
+    name: str,
+    name_i18n: dict[str, str] | None,
+    sort_order: int,
+) -> Category:
     existing = db.scalar(select(Category).where(Category.slug == slug))
     if existing:
         existing.name = name
+        existing.name_i18n = name_i18n
         existing.description = None
         existing.sort_order = sort_order
         existing.is_active = True
@@ -114,6 +156,7 @@ def upsert_category(db, *, slug: str, name: str, sort_order: int) -> Category:
     category = Category(
         slug=slug,
         name=name,
+        name_i18n=name_i18n,
         description=None,
         sort_order=sort_order,
         is_active=True,
@@ -130,7 +173,9 @@ def upsert_service(
     slug: str,
     category_id: int,
     name: str,
+    name_i18n: dict[str, str] | None,
     description: str | None,
+    description_i18n: dict[str, str] | None,
     url: str,
     icon_code: str,
     sort_order: int,
@@ -140,7 +185,9 @@ def upsert_service(
     if existing:
         existing.category_id = category_id
         existing.name = name
+        existing.name_i18n = name_i18n
         existing.description = description
+        existing.description_i18n = description_i18n
         existing.url = url
         existing.icon_emoji = icon_code
         existing.icon_url = None
@@ -153,7 +200,9 @@ def upsert_service(
         category_id=category_id,
         slug=slug,
         name=name,
+        name_i18n=name_i18n,
         description=description,
+        description_i18n=description_i18n,
         url=url,
         icon_emoji=icon_code,
         icon_url=None,
@@ -246,8 +295,9 @@ def import_config(config_path: Path, *, deactivate_missing: bool) -> None:
             if not isinstance(section, dict):
                 continue
 
-            section_name = section.get("name")
-            if not isinstance(section_name, str) or not section_name.strip():
+            section_name_value = section.get("name")
+            section_name, section_name_i18n = extract_text_and_i18n(section_name_value)
+            if not section_name:
                 continue
 
             category_slug = unique_slug(
@@ -257,7 +307,8 @@ def import_config(config_path: Path, *, deactivate_missing: bool) -> None:
             category = upsert_category(
                 db,
                 slug=category_slug,
-                name=section_name.strip(),
+                name=section_name,
+                name_i18n=section_name_i18n,
                 sort_order=section_index * 10,
             )
             active_category_ids.add(category.id)
@@ -269,9 +320,10 @@ def import_config(config_path: Path, *, deactivate_missing: bool) -> None:
                 if not isinstance(item, dict):
                     continue
 
-                item_title = item.get("title")
+                item_title_value = item.get("title")
                 item_url = item.get("url")
-                if not isinstance(item_title, str) or not item_title.strip():
+                item_title, item_title_i18n = extract_text_and_i18n(item_title_value)
+                if not item_title:
                     continue
                 if not isinstance(item_url, str) or not item_url.strip():
                     continue
@@ -283,13 +335,16 @@ def import_config(config_path: Path, *, deactivate_missing: bool) -> None:
 
                 group_names = extract_groups(item)
                 allow_all_authenticated = len(group_names) == 0
+                item_description, item_description_i18n = extract_text_and_i18n(item.get("description"))
 
                 service = upsert_service(
                     db,
                     slug=service_slug,
                     category_id=category.id,
-                    name=item_title.strip(),
-                    description=item.get("description") if isinstance(item.get("description"), str) else None,
+                    name=item_title,
+                    name_i18n=item_title_i18n,
+                    description=item_description,
+                    description_i18n=item_description_i18n,
                     url=item_url.strip(),
                     icon_code=icon_symbol(item.get("icon") if isinstance(item.get("icon"), str) else None, item_title),
                     sort_order=item_index * 10,

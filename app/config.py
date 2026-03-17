@@ -54,7 +54,16 @@ class Settings(BaseSettings):
     mock_public_groups: str = ""
 
     trusted_hosts: str = "localhost,127.0.0.1,0.0.0.0,::1,host.docker.internal"
+    trusted_proxy_networks: str = "127.0.0.0/8,::1/128"
+    internal_networks: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128,fc00::/7,fe80::/10"
+    internal_only_category_names: str = "Корпоративные Web-приложения,Corporate Web Applications"
+    internal_only_category_slugs: str = ""
     audit_enabled: bool = True
+    audit_retention_days: int = Field(default=30, ge=1)
+    audit_catalog_view_min_interval_seconds: int = Field(default=300, ge=0)
+    db_maintenance_enabled: bool = True
+    db_maintenance_interval_seconds: int = Field(default=300, ge=30)
+    session_expired_grace_seconds: int = Field(default=0, ge=0)
     log_level: str = "INFO"
 
     @property
@@ -63,6 +72,22 @@ class Settings(BaseSettings):
         if "*" in hosts:
             return ["*"]
         return hosts
+
+    @property
+    def trusted_proxy_networks_list(self) -> list[str]:
+        return [item.strip() for item in self.trusted_proxy_networks.split(",") if item.strip()]
+
+    @property
+    def internal_networks_list(self) -> list[str]:
+        return [item.strip() for item in self.internal_networks.split(",") if item.strip()]
+
+    @property
+    def internal_only_category_names_list(self) -> list[str]:
+        return [item.strip() for item in self.internal_only_category_names.split(",") if item.strip()]
+
+    @property
+    def internal_only_category_slugs_list(self) -> list[str]:
+        return [item.strip() for item in self.internal_only_category_slugs.split(",") if item.strip()]
 
     @property
     def scopes_list(self) -> list[str]:

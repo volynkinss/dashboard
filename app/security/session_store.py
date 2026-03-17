@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.user_session import UserSession
 from app.security.csrf import generate_csrf_token
+from app.services.maintenance import run_periodic_db_maintenance
 
 
 @dataclass(slots=True)
@@ -33,6 +34,7 @@ class PrincipalData:
 
 
 def create_user_session(db: Session, principal: PrincipalData) -> UserSession:
+    run_periodic_db_maintenance()
     now = datetime.now(timezone.utc)
     session = UserSession(
         session_id=secrets.token_urlsafe(48),
@@ -62,6 +64,7 @@ def delete_user_session(db: Session, session_id: str) -> None:
 
 
 def get_authenticated_session(db: Session, session_id: str | None) -> AuthenticatedSession | None:
+    run_periodic_db_maintenance()
     if not session_id:
         return None
 

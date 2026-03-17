@@ -11,7 +11,13 @@
         {% set is_clock = service.url.startswith('clock://') %}
         <div class="service-cell" data-service data-text="{{ (service.name ~ ' ' ~ (service.description or '')) | lower }}">
             {% if is_clock %}
-            <div class="clock-widget" data-timezone="{{ service.url | replace('clock://', '') }}">
+            <div
+                class="clock-widget"
+                data-timezone="{{ service.url | replace('clock://', '') }}"
+                data-label="{{ service.name }}"
+                data-lang="{{ lang }}"
+                data-locale="{% if lang == 'en' %}en-US{% else %}ru-RU{% endif %}"
+            >
                 <span class="service-title">{{ service.name }}</span>
                 <span class="clock-time">--:--:--</span>
                 <span class="clock-date">--</span>
@@ -44,7 +50,10 @@
 
 {% block content %}
 <div class="topbar">
-    <div class="topbar-title">{{ app_name }}</div>
+    <div class="topbar-brand">
+        <img class="topbar-logo" src="/static/img/t2-logo-lockup.png" alt="T2 Титан2 Холдинг">
+        <div class="topbar-title">{{ app_name }}</div>
+    </div>
     <div class="topbar-actions">
         <div class="lang-switch">
             <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}">RU</a>

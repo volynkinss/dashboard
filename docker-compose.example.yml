@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-catalog}
+      POSTGRES_USER: ${POSTGRES_USER:-catalog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-catalog}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-catalog} -d ${POSTGRES_DB:-catalog}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: ${APP_NAME:-Secure Service Catalog}
+      SECRET_KEY: ${SECRET_KEY:-replace-this-secret}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-catalog}:${POSTGRES_PASSWORD:-catalog}@db:5432/${POSTGRES_DB:-catalog}
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/master}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-catalog}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-replace-this-client-secret}
+      KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:8000/auth/callback}
+      KEYCLOAK_POST_LOGOUT_REDIRECT_URI: ${KEYCLOAK_POST_LOGOUT_REDIRECT_URI:-http://localhost:8000/}
+      KEYCLOAK_GROUPS_PREFIX: ${KEYCLOAK_GROUPS_PREFIX-/}
+      DASHY_CONFIG_PATH: ${DASHY_CONFIG_PATH:-/app/data/dashy.yaml}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1,0.0.0.0,::1,host.docker.internal}
+      TRUSTED_PROXY_NETWORKS: ${TRUSTED_PROXY_NETWORKS:-127.0.0.0/8,::1/128}
+      INTERNAL_NETWORKS: ${INTERNAL_NETWORKS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128,fc00::/7,fe80::/10}
+      INTERNAL_ONLY_CATEGORY_NAMES: ${INTERNAL_ONLY_CATEGORY_NAMES:-Корпоративные Web-приложения,Corporate Web Applications}
+      AUDIT_ENABLED: ${AUDIT_ENABLED:-true}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-30}
+      AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS: ${AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS:-300}
+      DB_MAINTENANCE_ENABLED: ${DB_MAINTENANCE_ENABLED:-true}
+      DB_MAINTENANCE_INTERVAL_SECONDS: ${DB_MAINTENANCE_INTERVAL_SECONDS:-300}
+      SESSION_EXPIRED_GRACE_SECONDS: ${SESSION_EXPIRED_GRACE_SECONDS:-0}
+    volumes:
+      - ./data:/app/data:ro
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m scripts.seed_from_dashy --config $${DASHY_CONFIG_PATH} --deactivate-missing &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:

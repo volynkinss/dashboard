@@ -27,6 +27,7 @@ class ServiceView:
 class CategoryView:
     name: str
     slug: str
+    aliases: tuple[str, ...]
     services: list[ServiceView]
 
 
@@ -128,10 +129,16 @@ class AccessControlService:
                 continue
 
             localized_category_name = localize_text(category.name, category.name_i18n, lang) or category.name
+            alias_values = [category.name]
+            if category.name_i18n:
+                alias_values.extend(category.name_i18n.values())
+            alias_values.append(localized_category_name)
+            unique_aliases = tuple(dict.fromkeys(value.strip() for value in alias_values if value and value.strip()))
             result.append(
                 CategoryView(
                     name=localized_category_name,
                     slug=category.slug,
+                    aliases=unique_aliases,
                     services=category_services,
                 )
             )

@@ -147,6 +147,38 @@ class KeycloakOIDCClient:
             return {str(value).strip() for value in raw_claim if isinstance(value, str) and str(value).strip()}
         return set()
 
+    @staticmethod
+    def _claim_to_string(raw_claim: object) -> str | None:
+        if not isinstance(raw_claim, str):
+            return None
+        value = raw_claim.strip()
+        return value if value else None
+
+    @classmethod
+    def _pick_display_name(cls, claims: dict) -> str | None:
+        given_name = cls._claim_to_string(claims.get("given_name"))
+        family_name = cls._claim_to_string(claims.get("family_name"))
+        if given_name and family_name:
+            return f"{given_name} {family_name}"
+
+        full_name = cls._claim_to_string(claims.get("name"))
+        if full_name and len(full_name.split()) >= 2:
+            return full_name
+
+        if given_name:
+            return given_name
+
+        for key in ("preferred_username", "email"):
+            candidate = cls._claim_to_string(claims.get(key))
+            if candidate:
+                return candidate
+
+        if full_name:
+            return full_name
+        if family_name:
+            return family_name
+        return None
+
     async def _decode_token(
         self,
         token: str,
@@ -236,10 +268,30 @@ class KeycloakOIDCClient:
                 f"(expected client_id={self.client_id}, aud={sorted(aud_values)}, azp={azp})"
             )
 
-        user_sub = id_claims.get("sub")
-        username = id_claims.get("preferred_username") or id_claims.get("name") or user_sub
-        if not isinstance(user_sub, str) or not isinstance(username, str):
+        user_sub = self._claim_to_string(id_claims.get("sub"))
+        if not user_sub:
             raise OIDCError("Identity claims are incomplete")
+
+        userinfo_claims_cache: dict = {}
+        userinfo_loaded = False
+
+        async def get_userinfo_claims() -> dict:
+            nonlocal userinfo_claims_cache, userinfo_loaded
+            if not userinfo_loaded:
+                userinfo_claims_cache = await self._get_userinfo(token_response["access_token"])
+                userinfo_loaded = True
+            return userinfo_claims_cache
+
+        userinfo_claims = await get_userinfo_claims()
+        merged_claims = dict(id_claims)
+        if userinfo_claims:
+            merged_claims.update(userinfo_claims)
+
+        username = self._pick_display_name(merged_claims)
+        email = self._claim_to_string(merged_claims.get("email"))
+
+        if username is None:
+            username = user_sub
 
         expires_at = access_claims.get("exp")
         if not isinstance(expires_at, int):
@@ -260,7 +312,7 @@ class KeycloakOIDCClient:
         if not groups:
             groups = self._claim_to_string_set(id_claims.get(group_claim_name))
         if not groups:
-            userinfo_claims = await self._get_userinfo(token_response["access_token"])
+            userinfo_claims = await get_userinfo_claims()
             groups = self._claim_to_string_set(userinfo_claims.get(group_claim_name))
 
         if self.settings.keycloak_groups_prefix:
@@ -270,7 +322,7 @@ class KeycloakOIDCClient:
         return PrincipalData(
             user_sub=user_sub,
             username=username,
-            email=id_claims.get("email") if isinstance(id_claims.get("email"), str) else None,
+            email=email,
             roles=roles,
             groups=groups,
             expires_at=datetime.fromtimestamp(expires_at, tz=timezone.utc),

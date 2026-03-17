@@ -58,7 +58,9 @@ Access model:
 1. Copy config:
    ```bash
    cp .env.example .env
+   cp docker-compose.example.yml docker-compose.yml
    ```
+   `docker-compose.yml` is local and ignored by Git, so you can change it freely.
 2. Put your real Dashy YAML to:
    - `data/dashy.yaml`
 3. Fill Keycloak values in `.env`.
@@ -174,11 +176,42 @@ Example: allow `confluence` only for `/AD/IT/PortalUsers`.
 
 This is controlled import only. Runtime token claims never auto-create ACL entries.
 
+## Internal-Only Sections by IP
+You can hide selected catalog sections for users outside internal networks.
+
+Environment variables:
+- `INTERNAL_NETWORKS` - comma-separated CIDRs treated as internal sources.
+- `TRUSTED_PROXY_NETWORKS` - proxies allowed to provide `X-Forwarded-For` / `X-Real-IP`.
+- `INTERNAL_ONLY_CATEGORY_NAMES` - section names hidden for external clients.
+- `INTERNAL_ONLY_CATEGORY_SLUGS` - optional slug list hidden for external clients.
+
+Defaults include RFC1918 ranges and hide `Корпоративные Web-приложения` (and its English variant) for external IPs.
+If your app is behind reverse proxy/load balancer, add that proxy subnet to `TRUSTED_PROXY_NETWORKS`.
+
+## Database Growth Control
+To keep PostgreSQL size stable under high daily usage, the app applies bounded retention and throttling:
+
+- Expired sessions are removed periodically.
+- Audit events older than retention window are removed periodically.
+- Repeated `catalog_view` events are throttled per user.
+
+Environment variables:
+- `AUDIT_RETENTION_DAYS` - how long to keep audit events (default `30`).
+- `AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS` - minimum interval between `catalog_view` events for the same user (default `300`).
+- `DB_MAINTENANCE_ENABLED` - enable periodic maintenance (default `true`).
+- `DB_MAINTENANCE_INTERVAL_SECONDS` - maintenance run interval (default `300`).
+- `SESSION_EXPIRED_GRACE_SECONDS` - additional grace period before deleting expired sessions (default `0`).
+
+Recommended baseline for ~1000 users/day:
+- Keep `AUDIT_RETENTION_DAYS=30` (or `14` if strict minimization is preferred).
+- Keep `AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS` in `120-300` range.
+- Keep `DB_MAINTENANCE_INTERVAL_SECONDS` in `300-900` range.
+
 ## Production Hardening Checklist
 - Set `SESSION_COOKIE_SECURE=true` behind HTTPS.
 - Rotate `SECRET_KEY` and `KEYCLOAK_CLIENT_SECRET` using secret manager.
 - Restrict `TRUSTED_HOSTS` to real hostnames.
 - Add database backups and retention policy.
-- Add periodic cleanup for expired `user_sessions` and old `audit_events`.
+- Keep periodic cleanup for expired `user_sessions` and old `audit_events` enabled.
 - Apply network policies between app and database.
 - Run app behind reverse proxy with TLS and request size limits.

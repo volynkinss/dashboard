@@ -1,6 +1,26 @@
 (function () {
+    var CLOCK_CITY_LABELS = {
+        "europe/moscow": { ru: "Москва", en: "Moscow" },
+        "europe/istanbul": { ru: "Стамбул", en: "Istanbul" },
+        "africa/cairo": { ru: "Каир", en: "Cairo" },
+        "europe/budapest": { ru: "Будапешт", en: "Budapest" },
+    };
+
     function normalize(value) {
         return (value || "").toLowerCase();
+    }
+
+    function normalizeLookup(value) {
+        return (value || "").trim().toLowerCase();
+    }
+
+    function getPageLanguage() {
+        var lang = normalizeLookup(document.documentElement.getAttribute("lang") || "ru");
+        return lang.indexOf("en") === 0 ? "en" : "ru";
+    }
+
+    function getLocaleForLanguage(lang) {
+        return lang === "en" ? "en-US" : "ru-RU";
     }
 
     function setupSearch() {
@@ -30,8 +50,8 @@
         input.addEventListener("input", applyFilter);
     }
 
-    function formatTime(timeZone) {
-        var formatter = new Intl.DateTimeFormat("ru-RU", {
+    function formatTime(timeZone, locale) {
+        var formatter = new Intl.DateTimeFormat(locale, {
             timeZone: timeZone,
             hour: "2-digit",
             minute: "2-digit",
@@ -41,8 +61,8 @@
         return formatter.format(new Date());
     }
 
-    function formatDate(timeZone) {
-        var formatter = new Intl.DateTimeFormat("ru-RU", {
+    function formatDate(timeZone, locale) {
+        var formatter = new Intl.DateTimeFormat(locale, {
             timeZone: timeZone,
             weekday: "long",
             day: "2-digit",
@@ -52,11 +72,55 @@
         return formatter.format(new Date());
     }
 
+    function fallbackClockTitleFromTimezone(timeZone) {
+        if (!timeZone) {
+            return "";
+        }
+        var parts = timeZone.split("/");
+        return (parts[parts.length - 1] || "").replace(/_/g, " ");
+    }
+
+    function normalizeTimezoneKey(timeZone) {
+        return normalizeLookup(timeZone);
+    }
+
+    function getWidgetLanguage(widget, fallbackLang) {
+        var raw = normalizeLookup(widget.getAttribute("data-lang") || "");
+        if (raw.indexOf("en") === 0) {
+            return "en";
+        }
+        if (raw.indexOf("ru") === 0) {
+            return "ru";
+        }
+        return fallbackLang;
+    }
+
+    function getWidgetLocale(widget, lang) {
+        var explicit = (widget.getAttribute("data-locale") || "").trim();
+        if (explicit) {
+            return explicit;
+        }
+        return getLocaleForLanguage(lang);
+    }
+
+    function getClockTitle(timeZone, lang, defaultLabel) {
+        var labels = CLOCK_CITY_LABELS[normalizeTimezoneKey(timeZone)];
+        if (labels && labels[lang]) {
+            return labels[lang];
+        }
+        if (defaultLabel) {
+            return defaultLabel;
+        }
+        return fallbackClockTitleFromTimezone(timeZone);
+    }
+
     function setupClocks() {
         var clocks = Array.prototype.slice.call(document.querySelectorAll(".clock-widget"));
         if (clocks.length === 0) {
             return;
         }
+
+        var pageLang = getPageLanguage();
 
         function tick() {
             clocks.forEach(function (widget) {
@@ -64,15 +128,23 @@
                 if (!timeZone) {
                     return;
                 }
+                var lang = getWidgetLanguage(widget, pageLang);
+                var locale = getWidgetLocale(widget, lang);
 
                 var timeEl = widget.querySelector(".clock-time");
                 var dateEl = widget.querySelector(".clock-date");
+                var titleEl = widget.querySelector(".service-title");
+
+                if (titleEl) {
+                    var defaultLabel = widget.getAttribute("data-label") || "";
+                    titleEl.textContent = getClockTitle(timeZone, lang, defaultLabel);
+                }
 
                 if (timeEl) {
-                    timeEl.textContent = formatTime(timeZone);
+                    timeEl.textContent = formatTime(timeZone, locale);
                 }
                 if (dateEl) {
-                    dateEl.textContent = formatDate(timeZone);
+                    dateEl.textContent = formatDate(timeZone, locale);
                 }
             });
         }

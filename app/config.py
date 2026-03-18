@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     keycloak_groups_claim: str = "groups"
     keycloak_groups_prefix: str = "/"
     keycloak_roles_client_id: str | None = None
+    keycloak_allowed_signing_algs: str = "RS256"
 
     mock_user_sub: str = "mock-user-1"
     mock_username: str = "mock.user"
@@ -64,6 +65,7 @@ class Settings(BaseSettings):
     db_maintenance_enabled: bool = True
     db_maintenance_interval_seconds: int = Field(default=300, ge=30)
     session_expired_grace_seconds: int = Field(default=0, ge=0)
+    session_last_seen_update_interval_seconds: int = Field(default=120, ge=0)
     log_level: str = "INFO"
 
     @property
@@ -92,6 +94,10 @@ class Settings(BaseSettings):
     @property
     def scopes_list(self) -> list[str]:
         return [item.strip() for item in self.keycloak_scopes.split() if item.strip()]
+
+    @property
+    def keycloak_allowed_signing_algs_list(self) -> list[str]:
+        return [item.strip().upper() for item in self.keycloak_allowed_signing_algs.split(",") if item.strip()]
 
     @property
     def roles_client_id(self) -> str:

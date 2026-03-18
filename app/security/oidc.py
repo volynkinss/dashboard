@@ -33,6 +33,25 @@ class KeycloakOIDCClient:
         self._metadata: dict | None = None
         self._jwks: dict | None = None
 
+    async def _resolve_allowed_signing_algorithms(self) -> list[str]:
+        configured_algorithms = self.settings.keycloak_allowed_signing_algs_list or ["RS256"]
+
+        metadata = await self._get_metadata()
+        metadata_supported = metadata.get("id_token_signing_alg_values_supported")
+        if not isinstance(metadata_supported, list):
+            return configured_algorithms
+
+        supported_algorithms = {
+            str(value).strip().upper()
+            for value in metadata_supported
+            if isinstance(value, str) and str(value).strip()
+        }
+        if not supported_algorithms:
+            return configured_algorithms
+
+        matched_algorithms = [alg for alg in configured_algorithms if alg in supported_algorithms]
+        return matched_algorithms or configured_algorithms
+
     async def _get_metadata(self) -> dict:
         if self._metadata is not None:
             return self._metadata
@@ -190,11 +209,21 @@ class KeycloakOIDCClient:
         try:
             header = jwt.get_unverified_header(token)
             kid = header.get("kid")
+            token_alg = str(header.get("alg", "")).strip().upper()
         except JWTError as exc:
             raise OIDCError("Invalid token header") from exc
 
         if not kid:
             raise OIDCError("Token missing kid")
+        if not token_alg:
+            raise OIDCError("Token missing signing algorithm")
+
+        allowed_algorithms = await self._resolve_allowed_signing_algorithms()
+        if token_alg not in allowed_algorithms:
+            raise OIDCError(
+                "Token signing algorithm is not allowed "
+                f"(alg={token_alg}, allowed={allowed_algorithms})"
+            )
 
         jwks = await self._get_jwks()
         key = next((item for item in jwks.get("keys", []) if item.get("kid") == kid), None)
@@ -220,7 +249,7 @@ class KeycloakOIDCClient:
                 claims = jwt.decode(
                     token,
                     key,
-                    algorithms=[header.get("alg", "RS256")],
+                    algorithms=allowed_algorithms,
                     audience=audience,
                     issuer=issuer,
                     options=options,

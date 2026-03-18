@@ -18,6 +18,7 @@ def write_audit_event(
     request: Request,
     user: AuthenticatedSession | None = None,
     details: dict | None = None,
+    autocommit: bool = True,
 ) -> None:
     settings = get_settings()
     if not settings.audit_enabled:
@@ -55,4 +56,5 @@ def write_audit_event(
         created_at=now,
     )
     db.add(event)
-    db.commit()
+    if autocommit:
+        db.commit()

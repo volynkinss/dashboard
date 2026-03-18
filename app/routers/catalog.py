@@ -15,6 +15,7 @@ from app.security.network import is_request_from_internal_network
 from app.security.session_store import get_authenticated_session
 from app.services.access_control import AccessControlService, CategoryView
 from app.services.audit import write_audit_event
+from app.services.maintenance import run_periodic_db_maintenance
 
 router = APIRouter(tags=["catalog"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -51,9 +52,25 @@ def _filter_sections_for_external_clients(
     return filtered_sections
 
 
+def _is_time_section(section: CategoryView) -> bool:
+    return any(service.url.startswith("clock://") for service in section.services)
+
+
+def _split_time_sections(sections: list[CategoryView]) -> tuple[list[CategoryView], list[CategoryView]]:
+    regular_sections: list[CategoryView] = []
+    time_sections: list[CategoryView] = []
+    for section in sections:
+        if _is_time_section(section):
+            time_sections.append(section)
+        else:
+            regular_sections.append(section)
+    return regular_sections, time_sections
+
+
 @router.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
+    run_periodic_db_maintenance()
     selected_lang = normalize_language(request.cookies.get(LANG_COOKIE_NAME))
     ui = get_messages(selected_lang)
 
@@ -85,6 +102,7 @@ def home(request: Request, db: Session = Depends(get_db)):
         internal_only_names=settings.internal_only_category_names_list,
         internal_only_slugs=settings.internal_only_category_slugs_list,
     )
+    regular_sections, time_sections = _split_time_sections(sections)
 
     write_audit_event(db, event_type="catalog_view", request=request, user=user)
 
@@ -95,6 +113,9 @@ def home(request: Request, db: Session = Depends(get_db)):
             "app_name": settings.app_name,
             "username": user.username,
             "sections": sections,
+            "regular_sections": regular_sections,
+            "time_sections": time_sections,
+            "has_time_sections": bool(time_sections),
             "csrf_token": user.csrf_token,
             "lang": selected_lang,
             "ui": ui,

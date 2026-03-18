@@ -15,12 +15,14 @@ from app.db import get_db
 from app.security.csrf import validate_csrf_token
 from app.security.oidc import OIDCError, get_oidc_client
 from app.security.session_store import (
+    AuthenticatedSession,
     PrincipalData,
     create_user_session,
     delete_user_session,
     get_authenticated_session,
 )
 from app.services.audit import write_audit_event
+from app.services.maintenance import run_periodic_db_maintenance
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 OIDC_ID_TOKEN_COOKIE_NAME = "oidc_id_token_hint"
@@ -123,14 +125,30 @@ def _issue_session_response(
     redirect_target: str,
     event_type: str,
 ) -> RedirectResponse:
-    session = create_user_session(db, principal)
+    session = create_user_session(db, principal, autocommit=False)
 
     ttl_seconds = max(1, int((principal.expires_at - datetime.now(timezone.utc)).total_seconds()))
     response = RedirectResponse(url=redirect_target, status_code=303)
     _set_session_cookie(response, settings=settings, session_id=session.session_id, ttl_seconds=ttl_seconds)
 
-    auth_session = get_authenticated_session(db, session.session_id)
-    write_audit_event(db, event_type=event_type, request=request, user=auth_session)
+    auth_session = AuthenticatedSession(
+        session_id=session.session_id,
+        user_sub=principal.user_sub,
+        username=principal.username,
+        email=principal.email,
+        roles=set(principal.roles),
+        groups=set(principal.groups),
+        csrf_token=session.csrf_token,
+        expires_at=principal.expires_at,
+    )
+    write_audit_event(
+        db,
+        event_type=event_type,
+        request=request,
+        user=auth_session,
+        autocommit=False,
+    )
+    db.commit()
 
     return response
 
@@ -144,6 +162,7 @@ async def login(
     db: Session = Depends(get_db),
 ):
     settings = get_settings()
+    run_periodic_db_maintenance()
     safe_next = _sanitize_next_path(next)
 
     if settings.is_mock_auth_mode:
@@ -214,6 +233,7 @@ async def callback(
     db: Session = Depends(get_db),
 ):
     settings = get_settings()
+    run_periodic_db_maintenance()
     if settings.is_mock_auth_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Callback is disabled in mock auth mode")
 
@@ -304,6 +324,7 @@ async def callback(
 @router.post("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
+    run_periodic_db_maintenance()
     force_login_target = f"{request.url_for('login')}?{urlencode({'next': '/', 'force_login': '1'})}"
     default_post_logout_target = f"{request.url_for('post_logout_landing')}?{urlencode({'next': '/'})}"
 
@@ -344,8 +365,9 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     if not validate_csrf_token(user.csrf_token, str(csrf_token) if csrf_token is not None else None):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid CSRF token")
 
-    delete_user_session(db, user.session_id)
-    write_audit_event(db, event_type="logout", request=request, user=user)
+    delete_user_session(db, user.session_id, autocommit=False)
+    write_audit_event(db, event_type="logout", request=request, user=user, autocommit=False)
+    db.commit()
 
     logout_target = await resolve_logout_target()
 

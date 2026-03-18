@@ -201,6 +201,7 @@ Environment variables:
 - `DB_MAINTENANCE_ENABLED` - enable periodic maintenance (default `true`).
 - `DB_MAINTENANCE_INTERVAL_SECONDS` - maintenance run interval (default `300`).
 - `SESSION_EXPIRED_GRACE_SECONDS` - additional grace period before deleting expired sessions (default `0`).
+- `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - minimum interval between `last_seen_at` updates for one session (default `120`).
 
 Recommended baseline for ~1000 users/day:
 - Keep `AUDIT_RETENTION_DAYS=30` (or `14` if strict minimization is preferred).
@@ -210,6 +211,7 @@ Recommended baseline for ~1000 users/day:
 ## Production Hardening Checklist
 - Set `SESSION_COOKIE_SECURE=true` behind HTTPS.
 - Rotate `SECRET_KEY` and `KEYCLOAK_CLIENT_SECRET` using secret manager.
+- Keep `KEYCLOAK_ALLOWED_SIGNING_ALGS` restricted to approved algorithms (for example `RS256`).
 - Restrict `TRUSTED_HOSTS` to real hostnames.
 - Add database backups and retention policy.
 - Keep periodic cleanup for expired `user_sessions` and old `audit_events` enabled.

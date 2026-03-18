@@ -29,24 +29,37 @@
             return;
         }
 
-        var serviceCells = Array.prototype.slice.call(document.querySelectorAll("[data-service]"));
-        var sections = Array.prototype.slice.call(document.querySelectorAll("[data-section]"));
+        var sections = Array.prototype.slice.call(document.querySelectorAll("[data-section]")).map(function (section) {
+            return {
+                section: section,
+                cells: Array.prototype.slice.call(section.querySelectorAll("[data-service]")),
+            };
+        });
+
+        function setVisibility(element, isVisible) {
+            element.hidden = !isVisible;
+        }
 
         function applyFilter() {
             var query = normalize(input.value.trim());
 
-            serviceCells.forEach(function (cell) {
-                var text = normalize(cell.getAttribute("data-text") || cell.textContent);
-                var visible = query.length === 0 || text.indexOf(query) !== -1;
-                cell.style.display = visible ? "" : "none";
-            });
+            sections.forEach(function (entry) {
+                var visibleCount = 0;
 
-            sections.forEach(function (section) {
-                var visibleCells = section.querySelectorAll("[data-service]:not([style*='display: none'])");
-                section.style.display = visibleCells.length > 0 ? "" : "none";
+                entry.cells.forEach(function (cell) {
+                    var text = normalize(cell.getAttribute("data-text") || cell.textContent);
+                    var isVisible = query.length === 0 || text.indexOf(query) !== -1;
+                    setVisibility(cell, isVisible);
+                    if (isVisible) {
+                        visibleCount += 1;
+                    }
+                });
+
+                setVisibility(entry.section, visibleCount > 0);
             });
         }
 
+        applyFilter();
         input.addEventListener("input", applyFilter);
     }
 

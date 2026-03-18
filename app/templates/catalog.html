@@ -23,11 +23,11 @@
                 <span class="clock-date">--</span>
             </div>
             {% else %}
-            <a class="service-link" href="{{ service.url }}" target="_blank" rel="noopener noreferrer" title="{{ service.description or service.name }}">
+            <a class="service-link" href="{{ service.url }}" target="_blank" rel="noopener noreferrer" title="{{ service.description or service.name }}" aria-label="{{ service.description or service.name }}">
                 {% set icon_value = service.icon_url or '' %}
                 {% set is_fa_icon = icon_value.startswith('fa:') %}
                 {% set is_image_icon = icon_value and not is_fa_icon %}
-                {% set fallback_icon = service.icon_emoji or service.name[0] %}
+                {% set fallback_icon = service.icon_emoji or service.name[:1] or '?' %}
                 <span class="service-icon {% if is_fa_icon %}service-icon-fa-mode{% elif is_image_icon %}service-icon-image-mode{% else %}service-icon-fallback-mode{% endif %}">
                     {% if is_fa_icon %}
                     <i class="service-icon-fa {{ icon_value[3:] }}" aria-hidden="true"></i>
@@ -56,8 +56,8 @@
     </div>
     <div class="topbar-actions">
         <div class="lang-switch">
-            <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}">RU</a>
-            <a href="{{ lang_en_url }}" class="lang-link {% if lang == 'en' %}lang-link-active{% endif %}">EN</a>
+            <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}" hreflang="ru" {% if lang == 'ru' %}aria-current="page"{% endif %}>RU</a>
+            <a href="{{ lang_en_url }}" class="lang-link {% if lang == 'en' %}lang-link-active{% endif %}" hreflang="en" {% if lang == 'en' %}aria-current="page"{% endif %}>EN</a>
         </div>
         <span class="topbar-user">{{ username }}</span>
         <form method="post" action="/auth/logout" class="logout-form">
@@ -70,47 +70,22 @@
 <div class="search-row">
     <div class="search-left">
         <label for="serviceSearch">{{ ui.search_label }}</label>
-        <input id="serviceSearch" type="text" placeholder="{{ ui.search_placeholder }}">
+        <input id="serviceSearch" type="search" placeholder="{{ ui.search_placeholder }}" autocomplete="off">
     </div>
 </div>
 
 {% if sections %}
-{% set layout = namespace(has_time_section=false) %}
-{% for section in sections %}
-    {% for service in section.services %}
-        {% if service.url.startswith('clock://') %}
-            {% set layout.has_time_section = true %}
-        {% endif %}
-    {% endfor %}
-{% endfor %}
-
-<div class="sections-layout {% if layout.has_time_section %}sections-layout-with-time{% endif %}">
+<div class="sections-layout {% if has_time_sections %}sections-layout-with-time{% endif %}">
     <div class="sections-grid" id="sectionsGrid">
-        {% for section in sections %}
-        {% set section_meta = namespace(is_time_section=false) %}
-        {% for service in section.services %}
-            {% if service.url.startswith('clock://') %}
-                {% set section_meta.is_time_section = true %}
-            {% endif %}
-        {% endfor %}
-        {% if not section_meta.is_time_section %}
-            {{ render_section(section, false) }}
-        {% endif %}
+        {% for section in regular_sections %}
+        {{ render_section(section, false) }}
         {% endfor %}
     </div>
 
-    {% if layout.has_time_section %}
+    {% if has_time_sections %}
     <aside class="time-column">
-        {% for section in sections %}
-        {% set section_meta = namespace(is_time_section=false) %}
-        {% for service in section.services %}
-            {% if service.url.startswith('clock://') %}
-                {% set section_meta.is_time_section = true %}
-            {% endif %}
-        {% endfor %}
-        {% if section_meta.is_time_section %}
-            {{ render_section(section, true) }}
-        {% endif %}
+        {% for section in time_sections %}
+        {{ render_section(section, true) }}
         {% endfor %}
     </aside>
     {% endif %}

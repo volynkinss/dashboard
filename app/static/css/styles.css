@@ -1,4 +1,6 @@
 :root {
+    --font-scale: 0.7;
+    --shortcut-scale: 0.7;
     --brand-blue-100: #e5eef7;
     --brand-blue-300: #9dbedd;
     --brand-blue-500: #669aca;
@@ -31,8 +33,8 @@
     --font-size-clock-time: clamp(24px, 1.3vw + 14px, 42px);
     --font-size-clock-date: clamp(11px, 0.3vw + 10px, 14px);
 
-    --service-icon-size: 76px;
-    --service-icon-inner-size: 48px;
+    --service-icon-size: calc(76px * var(--shortcut-scale));
+    --service-icon-inner-size: calc(48px * var(--shortcut-scale));
     --sticky-offset: 108px;
 }
 
@@ -213,7 +215,7 @@ body::before {
 }
 
 .search-row label {
-    font-size: 13px;
+    font-size: calc(13px * var(--font-scale));
     letter-spacing: 0.4px;
     text-transform: uppercase;
     color: var(--brand-blue-100);
@@ -314,7 +316,7 @@ body::before {
 
 .section-header h2 {
     margin: 0;
-    font-size: var(--font-size-section-title);
+    font-size: calc(var(--font-size-section-title) * var(--font-scale));
     line-height: 1;
     font-family: "Trebuchet MS", "Segoe UI", sans-serif;
     letter-spacing: 0.9px;
@@ -330,12 +332,13 @@ body::before {
 .section-time .section-header h2 {
     width: 100%;
     text-align: center;
+    font-size: var(--font-size-section-title);
 }
 
 .items-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    grid-auto-rows: minmax(138px, auto);
+    grid-template-columns: repeat(auto-fill, minmax(calc(130px * var(--shortcut-scale)), 1fr));
+    grid-auto-rows: minmax(calc(138px * var(--shortcut-scale)), auto);
     gap: 10px;
 }
 
@@ -351,12 +354,12 @@ body::before {
     color: var(--text-main);
     border: 1px solid rgba(168, 203, 230, 0.24);
     border-radius: 8px;
-    padding: 7px;
+    padding: calc(7px * var(--shortcut-scale));
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
+    gap: calc(8px * var(--shortcut-scale));
     background: linear-gradient(180deg, rgba(25, 95, 152, 0.24), rgba(12, 59, 101, 0.4));
     transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
 }
@@ -377,7 +380,7 @@ body::before {
 
 .service-title {
     text-align: center;
-    font-size: var(--font-size-service-title);
+    font-size: calc(var(--font-size-service-title) * var(--font-scale));
     line-height: 1.2;
     color: #e8f4ff;
     width: 100%;
@@ -408,7 +411,7 @@ body::before {
 }
 
 .service-icon-fa {
-    font-size: 40px;
+    font-size: calc(40px * var(--shortcut-scale));
     line-height: 1;
     display: none;
 }
@@ -426,7 +429,7 @@ body::before {
     justify-content: center;
     min-width: var(--service-icon-inner-size);
     min-height: var(--service-icon-inner-size);
-    font-size: 22px;
+    font-size: calc(22px * var(--shortcut-scale));
     font-weight: 700;
     letter-spacing: 0.3px;
 }
@@ -463,7 +466,7 @@ body::before {
 
 .clock-widget .service-title {
     text-align: center;
-    font-size: var(--font-size-clock-title);
+    font-size: calc(var(--font-size-clock-title) * var(--font-scale));
     min-height: auto;
     display: block;
     line-height: 1.1;
@@ -471,14 +474,14 @@ body::before {
 
 .clock-time {
     font-family: "Courier New", Courier, monospace;
-    font-size: var(--font-size-clock-time);
+    font-size: calc(var(--font-size-clock-time) * var(--font-scale));
     font-weight: 700;
     line-height: 1;
     color: #f6fbff;
 }
 
 .clock-date {
-    font-size: var(--font-size-clock-date);
+    font-size: calc(var(--font-size-clock-date) * var(--font-scale));
     color: var(--text-muted);
 }
 
@@ -506,16 +509,16 @@ body::before {
     }
 
     .clock-widget .service-title {
-        font-size: clamp(18px, 11cqh, 36px);
+        font-size: calc(clamp(18px, 11cqh, 36px) * var(--font-scale));
     }
 
     .clock-time {
-        font-size: clamp(36px, 30cqh, 96px);
+        font-size: calc(clamp(36px, 30cqh, 96px) * var(--font-scale));
         line-height: 0.95;
     }
 
     .clock-date {
-        font-size: clamp(14px, 8cqh, 28px);
+        font-size: calc(clamp(14px, 8cqh, 28px) * var(--font-scale));
         line-height: 1.05;
     }
 }
@@ -632,7 +635,7 @@ body::before {
     }
 
     .section-header h2 {
-        font-size: 20px;
+        font-size: calc(20px * var(--font-scale));
     }
 }
 

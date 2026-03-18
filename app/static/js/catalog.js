@@ -207,15 +207,45 @@
     }
 
     function updateStickyOffset() {
+        var root = document.documentElement;
         var topbar = document.querySelector(".topbar");
         if (!topbar) {
+            root.style.removeProperty("--time-section-height");
             return;
         }
         var styles = window.getComputedStyle(topbar);
         var marginBottom = parseFloat(styles.marginBottom || "0");
         var extraGap = 10;
         var offset = Math.ceil(topbar.getBoundingClientRect().height + marginBottom + extraGap);
-        document.documentElement.style.setProperty("--sticky-offset", offset + "px");
+        root.style.setProperty("--sticky-offset", offset + "px");
+
+        var timeSection = document.querySelector(".time-column .section-time");
+        if (!timeSection || window.matchMedia("(max-width: 1024px)").matches) {
+            root.style.removeProperty("--time-section-height");
+            return;
+        }
+
+        var viewportHeight = window.innerHeight || root.clientHeight;
+        var sectionTop = Math.max(timeSection.getBoundingClientRect().top, 0);
+        var bottomGap = 12;
+        var availableHeight = Math.floor(viewportHeight - sectionTop - bottomGap);
+
+        if (availableHeight > 0) {
+            root.style.setProperty("--time-section-height", availableHeight + "px");
+        }
+    }
+
+    var stickyUpdateScheduled = false;
+
+    function scheduleStickyOffsetUpdate() {
+        if (stickyUpdateScheduled) {
+            return;
+        }
+        stickyUpdateScheduled = true;
+        window.requestAnimationFrame(function () {
+            stickyUpdateScheduled = false;
+            updateStickyOffset();
+        });
     }
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -223,9 +253,10 @@
         setupClocks();
         setupImageIconFallback();
         detectFontAwesomeLoaded();
-        updateStickyOffset();
+        scheduleStickyOffsetUpdate();
         window.setTimeout(detectFontAwesomeLoaded, 300);
-        window.setTimeout(updateStickyOffset, 120);
-        window.addEventListener("resize", updateStickyOffset);
+        window.setTimeout(scheduleStickyOffsetUpdate, 120);
+        window.addEventListener("resize", scheduleStickyOffsetUpdate);
+        window.addEventListener("scroll", scheduleStickyOffsetUpdate, { passive: true });
     });
 })();

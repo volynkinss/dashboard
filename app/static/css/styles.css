@@ -272,7 +272,7 @@ body::before {
 }
 
 .time-column .section-time {
-    height: calc(100dvh - var(--sticky-offset) - 12px);
+    height: var(--time-section-height, calc(100dvh - var(--sticky-offset) - 12px));
     display: flex;
     flex-direction: column;
     overflow: hidden;

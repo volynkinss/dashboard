@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -11,18 +12,63 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db
 from app.i18n import LANG_COOKIE_NAME, get_messages, normalize_language
+from app.security.csrf import validate_csrf_token
 from app.security.network import is_request_from_internal_network
 from app.security.session_store import get_authenticated_session
 from app.services.access_control import AccessControlService, CategoryView
 from app.services.audit import write_audit_event
+from app.services.config_reload import (
+    ConfigReloadError,
+    ConfigReloadInProgressError,
+    reload_config_from_dashy,
+)
 from app.services.maintenance import run_periodic_db_maintenance
 
 router = APIRouter(tags=["catalog"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+logger = logging.getLogger(__name__)
 
 
 def _normalize_tokens(values: list[str]) -> set[str]:
     return {value.strip().casefold() for value in values if value.strip()}
+
+
+def _normalize_email(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().casefold()
+    return normalized or None
+
+
+def _can_reload_config(*, user_email: str | None, admin_email: str | None) -> bool:
+    normalized_admin = _normalize_email(admin_email)
+    normalized_user = _normalize_email(user_email)
+    return bool(normalized_admin and normalized_user and normalized_user == normalized_admin)
+
+
+def _sanitize_next_path(next_path: str | None) -> str:
+    if not next_path:
+        return "/"
+    if not next_path.startswith("/"):
+        return "/"
+    if next_path.startswith("//"):
+        return "/"
+    return next_path
+
+
+def _with_reload_result(next_path: str, result: str) -> str:
+    separator = "&" if "?" in next_path else "?"
+    return f"{next_path}{separator}config_reload={result}"
+
+
+def _resolve_reload_status_message(*, status_value: str | None, ui: dict[str, str]) -> tuple[str | None, str | None]:
+    if status_value == "ok":
+        return "success", ui["reload_config_success"]
+    if status_value == "busy":
+        return "warning", ui["reload_config_busy"]
+    if status_value == "error":
+        return "error", ui["reload_config_error"]
+    return None, None
 
 
 def _filter_sections_for_external_clients(
@@ -103,6 +149,14 @@ def home(request: Request, db: Session = Depends(get_db)):
         internal_only_slugs=settings.internal_only_category_slugs_list,
     )
     regular_sections, time_sections = _split_time_sections(sections)
+    can_reload_config = _can_reload_config(user_email=user.email, admin_email=settings.admin_email_normalized)
+    reload_status, reload_status_message = _resolve_reload_status_message(
+        status_value=request.query_params.get("config_reload"),
+        ui=ui,
+    )
+    if not can_reload_config:
+        reload_status = None
+        reload_status_message = None
 
     write_audit_event(db, event_type="catalog_view", request=request, user=user)
 
@@ -121,5 +175,66 @@ def home(request: Request, db: Session = Depends(get_db)):
             "ui": ui,
             "lang_ru_url": f"/lang/ru?{urlencode({'next': current_path})}",
             "lang_en_url": f"/lang/en?{urlencode({'next': current_path})}",
+            "can_reload_config": can_reload_config,
+            "config_reload_action_url": "/config/reload?next=%2F",
+            "config_reload_status": reload_status,
+            "config_reload_status_message": reload_status_message,
         },
     )
+
+
+@router.post("/config/reload")
+async def reload_config(
+    request: Request,
+    next: str | None = Query(default="/"),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    run_periodic_db_maintenance()
+    safe_next = _sanitize_next_path(next)
+
+    session_id = request.cookies.get(settings.session_cookie_name)
+    user = get_authenticated_session(db, session_id)
+    if user is None:
+        query = urlencode({"next": safe_next})
+        return RedirectResponse(url=f"/auth/login?{query}", status_code=303)
+
+    if not _can_reload_config(user_email=user.email, admin_email=settings.admin_email_normalized):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Config reload is not allowed")
+
+    form = await request.form()
+    csrf_token = form.get("csrf_token")
+    if not validate_csrf_token(user.csrf_token, str(csrf_token) if csrf_token is not None else None):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid CSRF token")
+
+    try:
+        reload_config_from_dashy(
+            config_path=settings.dashy_config_path,
+            deactivate_missing=True,
+        )
+    except ConfigReloadInProgressError:
+        write_audit_event(db, event_type="config_reload_busy", request=request, user=user)
+        return RedirectResponse(url=_with_reload_result(safe_next, "busy"), status_code=303)
+    except ConfigReloadError as exc:
+        logger.warning("Dashy config reload failed: %s", exc)
+        write_audit_event(
+            db,
+            event_type="config_reload_failure",
+            request=request,
+            user=user,
+            details={"error": str(exc)},
+        )
+        return RedirectResponse(url=_with_reload_result(safe_next, "error"), status_code=303)
+    except Exception as exc:
+        logger.exception("Unexpected error while reloading dashy config")
+        write_audit_event(
+            db,
+            event_type="config_reload_failure",
+            request=request,
+            user=user,
+            details={"error": str(exc)},
+        )
+        return RedirectResponse(url=_with_reload_result(safe_next, "error"), status_code=303)
+
+    write_audit_event(db, event_type="config_reload_success", request=request, user=user)
+    return RedirectResponse(url=_with_reload_result(safe_next, "ok"), status_code=303)

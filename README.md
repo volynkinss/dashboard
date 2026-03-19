@@ -65,6 +65,7 @@ Access model:
    - `data/dashy.yaml`
 3. Fill Keycloak values in `.env`.
    - If Keycloak runs on your host machine and app runs in Docker, use `KEYCLOAK_ISSUER_URL=http://host.docker.internal:<port>/realms/<realm>` instead of `localhost`.
+   - Set `ADMIN_EMAIL` to the Keycloak email of the user who should see the **Reload config** button in the top bar.
 4. Start:
    ```bash
    docker compose up --build
@@ -83,6 +84,11 @@ If you want to deactivate entities not present in the file:
 ```bash
 python -m scripts.seed_from_dashy --config ./data/dashy.yaml --deactivate-missing
 ```
+
+You can also reload `dashy.yaml` from UI without container restart:
+- Put admin email into `ADMIN_EMAIL` in `.env`.
+- Login with this email.
+- Click **Reload config** button (left from RU/EN switch). The app re-imports `DASHY_CONFIG_PATH` with `--deactivate-missing` behavior.
 
 Multilingual labels are supported for section names, service titles, and descriptions.
 You can keep string values (single language) or use `{ru, en}` objects:

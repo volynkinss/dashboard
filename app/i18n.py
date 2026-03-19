@@ -11,6 +11,10 @@ MESSAGES: Final[dict[str, dict[str, str]]] = {
     "ru": {
         "search_label": "Поиск",
         "search_placeholder": "Введите текст для фильтрации сервисов",
+        "reload_config": "Обновить конфигурацию",
+        "reload_config_success": "Конфигурация обновлена из dashy.yaml",
+        "reload_config_busy": "Обновление уже выполняется, попробуйте чуть позже",
+        "reload_config_error": "Не удалось обновить конфигурацию",
         "sign_out": "Выйти",
         "no_services_title": "Сервисы недоступны",
         "no_services_body": "Для вашего аккаунта пока не назначены ярлыки.",
@@ -18,6 +22,10 @@ MESSAGES: Final[dict[str, dict[str, str]]] = {
     "en": {
         "search_label": "Search",
         "search_placeholder": "Type to filter services",
+        "reload_config": "Reload config",
+        "reload_config_success": "Configuration has been reloaded from dashy.yaml",
+        "reload_config_busy": "Reload is already running, try again in a moment",
+        "reload_config_error": "Could not reload configuration",
         "sign_out": "Sign out",
         "no_services_title": "No services available",
         "no_services_body": "Your account has no granted shortcuts yet.",

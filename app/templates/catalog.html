@@ -55,6 +55,12 @@
         <div class="topbar-title">{{ app_name }}</div>
     </div>
     <div class="topbar-actions">
+        {% if can_reload_config %}
+        <form method="post" action="{{ config_reload_action_url }}" class="config-reload-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="config-reload-button">{{ ui.reload_config }}</button>
+        </form>
+        {% endif %}
         <div class="lang-switch">
             <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}" hreflang="ru" {% if lang == 'ru' %}aria-current="page"{% endif %}>RU</a>
             <a href="{{ lang_en_url }}" class="lang-link {% if lang == 'en' %}lang-link-active{% endif %}" hreflang="en" {% if lang == 'en' %}aria-current="page"{% endif %}>EN</a>
@@ -66,6 +72,10 @@
         </form>
     </div>
 </div>
+
+{% if config_reload_status_message %}
+<div class="config-reload-status config-reload-status-{{ config_reload_status }}">{{ config_reload_status_message }}</div>
+{% endif %}
 
 <div class="search-row">
     <div class="search-left">

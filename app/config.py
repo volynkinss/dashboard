@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     keycloak_groups_prefix: str = "/"
     keycloak_roles_client_id: str | None = None
     keycloak_allowed_signing_algs: str = "RS256"
+    admin_email: str = ""
+    dashy_config_path: str = "/app/data/dashy.yaml"
 
     mock_user_sub: str = "mock-user-1"
     mock_username: str = "mock.user"
@@ -98,6 +100,11 @@ class Settings(BaseSettings):
     @property
     def keycloak_allowed_signing_algs_list(self) -> list[str]:
         return [item.strip().upper() for item in self.keycloak_allowed_signing_algs.split(",") if item.strip()]
+
+    @property
+    def admin_email_normalized(self) -> str | None:
+        value = self.admin_email.strip().casefold()
+        return value or None
 
     @property
     def roles_client_id(self) -> str:

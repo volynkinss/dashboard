@@ -142,6 +142,27 @@ body::before {
     gap: 10px;
 }
 
+.config-reload-form {
+    margin: 0;
+}
+
+.config-reload-button {
+    border: 1px solid rgba(181, 216, 244, 0.66);
+    background: linear-gradient(180deg, rgba(50, 131, 196, 0.88), rgba(26, 94, 152, 0.86));
+    color: var(--text-strong);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.config-reload-button:hover {
+    border-color: rgba(226, 242, 255, 0.92);
+    background: linear-gradient(180deg, rgba(68, 150, 216, 0.92), rgba(34, 108, 168, 0.9));
+}
+
 .lang-switch {
     display: inline-flex;
     align-items: center;
@@ -198,6 +219,30 @@ body::before {
 .logout-button:hover {
     border-color: rgba(220, 238, 252, 0.74);
     background: linear-gradient(180deg, rgba(38, 114, 178, 0.88), rgba(24, 92, 146, 0.86));
+}
+
+.config-reload-status {
+    margin: 0 0 14px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(190, 220, 243, 0.4);
+    background: linear-gradient(180deg, rgba(17, 84, 139, 0.46), rgba(11, 61, 104, 0.5));
+    font-size: 13px;
+}
+
+.config-reload-status-success {
+    border-color: rgba(142, 224, 178, 0.62);
+    background: linear-gradient(180deg, rgba(47, 132, 87, 0.48), rgba(34, 107, 69, 0.52));
+}
+
+.config-reload-status-warning {
+    border-color: rgba(241, 214, 145, 0.66);
+    background: linear-gradient(180deg, rgba(145, 110, 37, 0.5), rgba(104, 78, 27, 0.52));
+}
+
+.config-reload-status-error {
+    border-color: rgba(241, 167, 167, 0.68);
+    background: linear-gradient(180deg, rgba(150, 69, 69, 0.52), rgba(111, 43, 43, 0.56));
 }
 
 .search-row {
@@ -371,6 +416,7 @@ body::before {
 }
 
 .service-link:focus-visible,
+.config-reload-button:focus-visible,
 .logout-button:focus-visible,
 .lang-link:focus-visible,
 .search-row input:focus-visible {

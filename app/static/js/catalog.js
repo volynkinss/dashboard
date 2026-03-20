@@ -1,4 +1,8 @@
 (function () {
+    var THEME_DEFAULT = "default";
+    var THEME_LEGACY = "legacy";
+    var THEME_STORAGE_KEY_PREFIX = "dashboard.theme";
+
     var CLOCK_CITY_LABELS = {
         "europe/moscow": { ru: "Москва", en: "Moscow" },
         "europe/istanbul": { ru: "Стамбул", en: "Istanbul" },
@@ -21,6 +25,79 @@
 
     function getLocaleForLanguage(lang) {
         return lang === "en" ? "en-US" : "ru-RU";
+    }
+
+    function normalizeTheme(value) {
+        return value === THEME_LEGACY ? THEME_LEGACY : THEME_DEFAULT;
+    }
+
+    function readStoredValue(storageKey) {
+        try {
+            return window.localStorage.getItem(storageKey);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    function writeStoredValue(storageKey, value) {
+        try {
+            window.localStorage.setItem(storageKey, value);
+        } catch (_error) {
+            // Ignore storage errors (for example in strict privacy mode).
+        }
+    }
+
+    function getThemeStorageKey(toggleButton) {
+        if (!toggleButton) {
+            return THEME_STORAGE_KEY_PREFIX;
+        }
+        var rawScope = (toggleButton.getAttribute("data-theme-storage-scope") || "").trim().toLowerCase();
+        if (!rawScope) {
+            return THEME_STORAGE_KEY_PREFIX;
+        }
+        return THEME_STORAGE_KEY_PREFIX + "." + encodeURIComponent(rawScope);
+    }
+
+    function applyTheme(themeName) {
+        var nextTheme = normalizeTheme(themeName);
+        document.body.setAttribute("data-theme", nextTheme);
+        return nextTheme;
+    }
+
+    function updateThemeToggleLabel(toggleButton, activeTheme) {
+        if (!toggleButton) {
+            return;
+        }
+        var labelForDefaultTheme = toggleButton.getAttribute("data-theme-label-default") || "Alternative theme";
+        var labelForLegacyTheme = toggleButton.getAttribute("data-theme-label-legacy") || "Default theme";
+        var nextLabel = activeTheme === THEME_LEGACY ? labelForLegacyTheme : labelForDefaultTheme;
+        var srLabel = toggleButton.querySelector(".theme-toggle-sr-label");
+        if (srLabel) {
+            srLabel.textContent = nextLabel;
+        }
+        toggleButton.setAttribute("aria-label", nextLabel);
+        toggleButton.setAttribute("title", nextLabel);
+        toggleButton.setAttribute("aria-pressed", activeTheme === THEME_LEGACY ? "true" : "false");
+    }
+
+    function setupThemeToggle() {
+        var toggleButton = document.querySelector("[data-theme-toggle]");
+        var storageKey = getThemeStorageKey(toggleButton);
+        var activeTheme = applyTheme(readStoredValue(storageKey));
+
+        updateThemeToggleLabel(toggleButton, activeTheme);
+        if (!toggleButton) {
+            return;
+        }
+
+        toggleButton.addEventListener("click", function () {
+            var currentTheme = normalizeTheme(document.body.getAttribute("data-theme"));
+            var nextTheme = currentTheme === THEME_LEGACY ? THEME_DEFAULT : THEME_LEGACY;
+            applyTheme(nextTheme);
+            writeStoredValue(storageKey, nextTheme);
+            updateThemeToggleLabel(toggleButton, nextTheme);
+            scheduleStickyOffsetUpdate();
+        });
     }
 
     function setupSearch() {
@@ -248,10 +325,52 @@
         });
     }
 
+    function clearConfigReloadQueryParam() {
+        if (!window.history || typeof window.history.replaceState !== "function") {
+            return;
+        }
+
+        var url = new URL(window.location.href);
+        if (!url.searchParams.has("config_reload")) {
+            return;
+        }
+
+        url.searchParams.delete("config_reload");
+        var nextUrl = url.pathname;
+        var nextQuery = url.searchParams.toString();
+        if (nextQuery) {
+            nextUrl += "?" + nextQuery;
+        }
+        if (url.hash) {
+            nextUrl += url.hash;
+        }
+        window.history.replaceState({}, document.title, nextUrl);
+    }
+
+    function setupConfigReloadStatusModal() {
+        var modal = document.querySelector("[data-config-reload-modal]");
+        if (!modal) {
+            return;
+        }
+
+        var okButton = modal.querySelector("[data-config-reload-ok]");
+        if (!okButton) {
+            return;
+        }
+
+        okButton.addEventListener("click", function () {
+            modal.remove();
+            clearConfigReloadQueryParam();
+        });
+        okButton.focus();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
+        setupThemeToggle();
         setupSearch();
         setupClocks();
         setupImageIconFallback();
+        setupConfigReloadStatusModal();
         detectFontAwesomeLoaded();
         scheduleStickyOffsetUpdate();
         window.setTimeout(detectFontAwesomeLoaded, 300);

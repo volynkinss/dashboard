@@ -58,13 +58,34 @@
         {% if can_reload_config %}
         <form method="post" action="{{ config_reload_action_url }}" class="config-reload-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="config-reload-button">{{ ui.reload_config }}</button>
+            <button
+                type="submit"
+                class="config-reload-button"
+                aria-label="{{ ui.reload_config }}"
+                title="{{ ui.reload_config }}"
+            >
+                <img class="config-reload-icon" src="/static/img/1f504.png" alt="" aria-hidden="true">
+                <span class="sr-only">{{ ui.reload_config }}</span>
+            </button>
         </form>
         {% endif %}
         <div class="lang-switch">
             <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}" hreflang="ru" {% if lang == 'ru' %}aria-current="page"{% endif %}>RU</a>
             <a href="{{ lang_en_url }}" class="lang-link {% if lang == 'en' %}lang-link-active{% endif %}" hreflang="en" {% if lang == 'en' %}aria-current="page"{% endif %}>EN</a>
         </div>
+        <button
+            type="button"
+            class="theme-toggle-button"
+            data-theme-toggle
+            data-theme-label-default="{{ ui.theme_switch_to_alt }}"
+            data-theme-label-legacy="{{ ui.theme_switch_to_default }}"
+            data-theme-storage-scope="{{ username }}"
+            aria-label="{{ ui.theme_switch_to_alt }}"
+            title="{{ ui.theme_switch_to_alt }}"
+        >
+            <img class="theme-toggle-icon" src="/static/img/2206039.png" alt="" aria-hidden="true">
+            <span class="sr-only theme-toggle-sr-label">{{ ui.theme_switch_to_alt }}</span>
+        </button>
         <span class="topbar-user">{{ username }}</span>
         <form method="post" action="/auth/logout" class="logout-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -74,7 +95,18 @@
 </div>
 
 {% if config_reload_status_message %}
-<div class="config-reload-status config-reload-status-{{ config_reload_status }}">{{ config_reload_status_message }}</div>
+<div
+    class="config-reload-modal config-reload-modal-{{ config_reload_status }}"
+    data-config-reload-modal
+    role="dialog"
+    aria-modal="true"
+    aria-label="{{ ui.reload_config }}"
+>
+    <div class="config-reload-modal-card">
+        <p class="config-reload-modal-message">{{ config_reload_status_message }}</p>
+        <button type="button" class="config-reload-modal-ok" data-config-reload-ok>OK</button>
+    </div>
+</div>
 {% endif %}
 
 <div class="search-row">

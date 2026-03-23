@@ -50,6 +50,36 @@ def _with_force_login_query(url: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
 
 
+def _restart_login_from_callback(
+    *,
+    request: Request,
+    db: Session,
+    settings: Settings,
+    reason: str,
+    next_path: str = "/",
+) -> RedirectResponse:
+    safe_next = _sanitize_next_path(next_path)
+    session_id = request.cookies.get(settings.session_cookie_name)
+    has_active_session = get_authenticated_session(db, session_id) is not None
+    write_audit_event(
+        db,
+        event_type="login_failure",
+        request=request,
+        details={"reason": reason},
+    )
+    if has_active_session:
+        response = RedirectResponse(url=safe_next, status_code=303)
+    else:
+        query = urlencode({"next": safe_next, "force_login": "1"})
+        response = RedirectResponse(url=f"/auth/login?{query}", status_code=303)
+    response.delete_cookie(
+        key=settings.oidc_temp_cookie_name,
+        domain=settings.session_cookie_domain,
+        path="/",
+    )
+    return response
+
+
 def _set_session_cookie(response: RedirectResponse, *, settings: Settings, session_id: str, ttl_seconds: int) -> None:
     response.set_cookie(
         key=settings.session_cookie_name,
@@ -256,29 +286,58 @@ async def callback(
         )
 
     if not state or not code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OIDC callback is missing required parameters",
+        return _restart_login_from_callback(
+            request=request,
+            db=db,
+            settings=settings,
+            reason="oidc_callback_missing_required_parameters",
         )
 
     signed_cookie = request.cookies.get(settings.oidc_temp_cookie_name)
     if not signed_cookie:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing OIDC state cookie")
+        return _restart_login_from_callback(
+            request=request,
+            db=db,
+            settings=settings,
+            reason="oidc_callback_missing_state_cookie",
+        )
 
     try:
         state_payload = serializer.loads(signed_cookie, max_age=settings.oidc_temp_cookie_max_age_seconds)
-    except SignatureExpired as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Login session expired") from exc
-    except BadSignature as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid login state") from exc
+    except SignatureExpired:
+        return _restart_login_from_callback(
+            request=request,
+            db=db,
+            settings=settings,
+            reason="oidc_callback_state_cookie_expired",
+        )
+    except BadSignature:
+        return _restart_login_from_callback(
+            request=request,
+            db=db,
+            settings=settings,
+            reason="oidc_callback_state_cookie_invalid",
+        )
 
     cookie_state = state_payload.get("state")
     if not isinstance(cookie_state, str) or not hmac.compare_digest(cookie_state, state):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="State verification failed")
+        return _restart_login_from_callback(
+            request=request,
+            db=db,
+            settings=settings,
+            reason="oidc_callback_state_mismatch",
+            next_path=state_payload.get("next") if isinstance(state_payload.get("next"), str) else "/",
+        )
 
     nonce = state_payload.get("nonce")
     if not isinstance(nonce, str):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nonce is missing")
+        return _restart_login_from_callback(
+            request=request,
+            db=db,
+            settings=settings,
+            reason="oidc_callback_missing_nonce",
+            next_path=state_payload.get("next") if isinstance(state_payload.get("next"), str) else "/",
+        )
 
     try:
         token_response = await oidc_client.exchange_code_for_tokens(code=code)

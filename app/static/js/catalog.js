@@ -71,6 +71,11 @@
         var labelForDefaultTheme = toggleButton.getAttribute("data-theme-label-default") || "Alternative theme";
         var labelForLegacyTheme = toggleButton.getAttribute("data-theme-label-legacy") || "Default theme";
         var nextLabel = activeTheme === THEME_LEGACY ? labelForLegacyTheme : labelForDefaultTheme;
+        var icon = toggleButton.querySelector(".theme-toggle-icon");
+        if (icon) {
+            icon.classList.remove("fa-toggle-on", "fa-toggle-off");
+            icon.classList.add(activeTheme === THEME_LEGACY ? "fa-toggle-off" : "fa-toggle-on");
+        }
         var srLabel = toggleButton.querySelector(".theme-toggle-sr-label");
         if (srLabel) {
             srLabel.textContent = nextLabel;
@@ -138,6 +143,69 @@
 
         applyFilter();
         input.addEventListener("input", applyFilter);
+    }
+
+    function getEventLogCsrfToken() {
+        if (!document.body) {
+            return "";
+        }
+        return (document.body.getAttribute("data-csrf-token") || "").trim();
+    }
+
+    function sendServiceClickEvent(payload) {
+        if (!window.fetch) {
+            return;
+        }
+
+        try {
+            window.fetch("/events/service-click", {
+                method: "POST",
+                credentials: "same-origin",
+                keepalive: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            }).catch(function () {
+                // Best-effort telemetry only.
+            });
+        } catch (_error) {
+            // Best-effort telemetry only.
+        }
+    }
+
+    function setupServiceClickLogging() {
+        var csrfToken = getEventLogCsrfToken();
+        if (!csrfToken) {
+            return;
+        }
+
+        document.addEventListener("click", function (event) {
+            var eventTarget = event.target;
+            if (!eventTarget || typeof eventTarget.closest !== "function") {
+                return;
+            }
+
+            var link = eventTarget.closest(".service-link");
+            if (!link) {
+                return;
+            }
+
+            var cell = link.closest("[data-service]");
+            if (!cell) {
+                return;
+            }
+
+            var serviceSlug = (cell.getAttribute("data-service-slug") || "").trim();
+            if (!serviceSlug) {
+                return;
+            }
+
+            var categorySlug = (cell.getAttribute("data-category-slug") || "").trim();
+            sendServiceClickEvent({
+                csrf_token: csrfToken,
+                service_slug: serviceSlug,
+                category_slug: categorySlug || null,
+            });
+        });
     }
 
     function formatTime(timeZone, locale) {
@@ -368,6 +436,7 @@
     document.addEventListener("DOMContentLoaded", function () {
         setupThemeToggle();
         setupSearch();
+        setupServiceClickLogging();
         setupClocks();
         setupImageIconFallback();
         setupConfigReloadStatusModal();

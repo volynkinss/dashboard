@@ -8,6 +8,7 @@ from starlette.requests import Request
 
 from app.config import get_settings
 from app.models.audit_event import AuditEvent
+from app.services.activity_log import write_activity_event
 from app.security.session_store import AuthenticatedSession
 
 
@@ -42,6 +43,14 @@ def write_audit_event(
         )
         if has_recent_catalog_view:
             return
+
+    write_activity_event(
+        event_type=event_type,
+        request=request,
+        user=user,
+        details=details,
+        created_at=now,
+    )
 
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")

@@ -27,6 +27,7 @@ A production-oriented internal shortcuts portal where users see only services th
 - `app/security/session_store.py` server-side session management
 - `app/services/access_control.py` deny-by-default access filtering
 - `app/services/audit.py` audit event recording
+- `app/services/activity_log.py` rotating JSONL activity log writer
 - `app/models/*` SQLAlchemy models
 - `app/templates/*` SSR templates
 - `alembic/*` migrations
@@ -213,6 +214,23 @@ Recommended baseline for ~1000 users/day:
 - Keep `AUDIT_RETENTION_DAYS=30` (or `14` if strict minimization is preferred).
 - Keep `AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS` in `120-300` range.
 - Keep `DB_MAINTENANCE_INTERVAL_SECONDS` in `300-900` range.
+
+## File Activity Log (User Actions)
+The app can write structured user-action events to a rotating log file:
+- Server-side audit events are mirrored to JSONL log entries.
+- Clicks on catalog service shortcuts are logged as `service_click` with service/category slugs.
+- File logging is best-effort and does not block user flow on write failures.
+
+Environment variables:
+- `ACTIVITY_LOG_ENABLED` - enable file logging (default `true`).
+- `ACTIVITY_LOG_FILE_PATH` - target log file path (default `/tmp/catalog_activity.log`).
+- `ACTIVITY_LOG_MAX_BYTES` - rotate when file exceeds this size (default `20971520`, 20 MB).
+- `ACTIVITY_LOG_BACKUP_COUNT` - number of rotated files to keep (default `10`).
+
+For Docker Compose persistence, mount a writable logs directory (example in `docker-compose.example.yml`):
+- `./logs:/app/logs`
+- `ACTIVITY_LOG_FILE_PATH=/app/logs/catalog_activity.log`
+- Ensure `./logs` is writable for container user (`appuser`), otherwise file logging will be skipped.
 
 ## Production Hardening Checklist
 - Set `SESSION_COOKIE_SECURE=true` behind HTTPS.

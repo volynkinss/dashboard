@@ -5,8 +5,9 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -16,6 +17,7 @@ from app.security.csrf import validate_csrf_token
 from app.security.network import is_request_from_internal_network
 from app.security.session_store import get_authenticated_session
 from app.services.access_control import AccessControlService, CategoryView
+from app.services.activity_log import write_activity_event
 from app.services.audit import write_audit_event
 from app.services.config_reload import (
     ConfigReloadError,
@@ -27,6 +29,12 @@ from app.services.maintenance import run_periodic_db_maintenance
 router = APIRouter(tags=["catalog"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 logger = logging.getLogger(__name__)
+
+
+class ServiceClickEventPayload(BaseModel):
+    csrf_token: str = Field(min_length=1, max_length=128)
+    service_slug: str = Field(min_length=1, max_length=64)
+    category_slug: str | None = Field(default=None, max_length=64)
 
 
 def _normalize_tokens(values: list[str]) -> set[str]:
@@ -111,6 +119,32 @@ def _split_time_sections(sections: list[CategoryView]) -> tuple[list[CategoryVie
         else:
             regular_sections.append(section)
     return regular_sections, time_sections
+
+
+@router.post("/events/service-click", status_code=status.HTTP_204_NO_CONTENT)
+def service_click_event(payload: ServiceClickEventPayload, request: Request, db: Session = Depends(get_db)):
+    settings = get_settings()
+    if not settings.activity_log_enabled:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    session_id = request.cookies.get(settings.session_cookie_name)
+    user = get_authenticated_session(db, session_id)
+    if user is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    if not validate_csrf_token(user.csrf_token, payload.csrf_token):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid CSRF token")
+
+    write_activity_event(
+        event_type="service_click",
+        request=request,
+        user=user,
+        details={
+            "service_slug": payload.service_slug,
+            "category_slug": payload.category_slug,
+        },
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/")

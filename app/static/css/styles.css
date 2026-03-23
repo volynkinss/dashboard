@@ -170,10 +170,9 @@ body::before {
 }
 
 .config-reload-icon {
-    width: 18px;
-    height: 18px;
-    display: block;
-    object-fit: contain;
+    display: inline-block;
+    font-size: 18px;
+    line-height: 1;
 }
 
 .lang-switch {
@@ -230,10 +229,10 @@ body::before {
 }
 
 .theme-toggle-icon {
-    width: 18px;
-    height: 18px;
-    display: block;
-    object-fit: contain;
+    display: inline-block;
+    font-size: 20px;
+    line-height: 1;
+    color: #eaf5ff;
 }
 
 .sr-only {
@@ -680,10 +679,6 @@ body::before {
     margin: 0 0 8px;
 }
 
-body[data-theme="legacy"] {
-    background-color: #0057a6;
-}
-
 body[data-theme="legacy"] .topbar {
     background: none;
     background-color: #0057a6;
@@ -701,19 +696,6 @@ body[data-theme="legacy"] .section-card {
 
 body[data-theme="legacy"] .section-time .section-header h2 {
     font-size: calc(var(--font-size-section-title) * var(--font-scale));
-}
-
-body[data-theme="legacy"] .service-link,
-body[data-theme="legacy"] .clock-widget {
-    border: 0;
-    transition: none;
-    background-color: #01417b;
-}
-
-body[data-theme="legacy"] .clock-widget {
-    border-color: transparent;
-    background: none;
-    background-color: #013f78;
 }
 
 body[data-theme="legacy"] .service-icon {
@@ -741,6 +723,10 @@ body[data-theme="legacy"] .theme-toggle-button {
 body[data-theme="legacy"] .theme-toggle-button {
     border-color: rgba(183, 212, 237, 0.5);
     background: #01498a;
+}
+
+body[data-theme="legacy"] .theme-toggle-icon {
+    color: #bcd8f0;
 }
 
 body[data-theme="legacy"] .theme-toggle-button:hover {

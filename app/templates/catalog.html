@@ -9,7 +9,13 @@
     <div class="items-grid">
         {% for service in section.services %}
         {% set is_clock = service.url.startswith('clock://') %}
-        <div class="service-cell" data-service data-text="{{ (service.name ~ ' ' ~ (service.description or '')) | lower }}">
+        <div
+            class="service-cell"
+            data-service
+            data-text="{{ (service.name ~ ' ' ~ (service.description or '')) | lower }}"
+            data-service-slug="{{ service.slug }}"
+            data-category-slug="{{ section.slug }}"
+        >
             {% if is_clock %}
             <div
                 class="clock-widget"
@@ -64,7 +70,7 @@
                 aria-label="{{ ui.reload_config }}"
                 title="{{ ui.reload_config }}"
             >
-                <img class="config-reload-icon" src="/static/img/1f504.png" alt="" aria-hidden="true">
+                <i class="fa fa-refresh config-reload-icon" aria-hidden="true"></i>
                 <span class="sr-only">{{ ui.reload_config }}</span>
             </button>
         </form>
@@ -83,7 +89,7 @@
             aria-label="{{ ui.theme_switch_to_alt }}"
             title="{{ ui.theme_switch_to_alt }}"
         >
-            <img class="theme-toggle-icon" src="/static/img/2206039.png" alt="" aria-hidden="true">
+            <i class="fa fa-toggle-on theme-toggle-icon" aria-hidden="true"></i>
             <span class="sr-only theme-toggle-sr-label">{{ ui.theme_switch_to_alt }}</span>
         </button>
         <span class="topbar-user">{{ username }}</span>

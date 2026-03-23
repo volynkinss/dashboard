@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     audit_enabled: bool = True
     audit_retention_days: int = Field(default=30, ge=1)
     audit_catalog_view_min_interval_seconds: int = Field(default=300, ge=0)
+    activity_log_enabled: bool = True
+    activity_log_file_path: str = "/tmp/catalog_activity.log"
+    activity_log_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024)
+    activity_log_backup_count: int = Field(default=10, ge=1)
     db_maintenance_enabled: bool = True
     db_maintenance_interval_seconds: int = Field(default=300, ge=30)
     session_expired_grace_seconds: int = Field(default=0, ge=0)

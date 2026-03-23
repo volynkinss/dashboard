@@ -16,6 +16,7 @@ from app.models.service_access import ServiceAccess
 
 @dataclass(slots=True)
 class ServiceView:
+    slug: str
     name: str
     description: str | None
     url: str
@@ -114,6 +115,7 @@ class AccessControlService:
             localized_description = localize_text(service.description, service.description_i18n, lang)
             services_by_category[service.category_id].append(
                 ServiceView(
+                    slug=service.slug,
                     name=localized_name,
                     description=localized_description,
                     url=service.url,

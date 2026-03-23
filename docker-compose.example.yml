@@ -41,11 +41,16 @@ services:
       AUDIT_ENABLED: ${AUDIT_ENABLED:-true}
       AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-30}
       AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS: ${AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS:-300}
+      ACTIVITY_LOG_ENABLED: ${ACTIVITY_LOG_ENABLED:-true}
+      ACTIVITY_LOG_FILE_PATH: ${ACTIVITY_LOG_FILE_PATH:-/app/logs/catalog_activity.log}
+      ACTIVITY_LOG_MAX_BYTES: ${ACTIVITY_LOG_MAX_BYTES:-20971520}
+      ACTIVITY_LOG_BACKUP_COUNT: ${ACTIVITY_LOG_BACKUP_COUNT:-10}
       DB_MAINTENANCE_ENABLED: ${DB_MAINTENANCE_ENABLED:-true}
       DB_MAINTENANCE_INTERVAL_SECONDS: ${DB_MAINTENANCE_INTERVAL_SECONDS:-300}
       SESSION_EXPIRED_GRACE_SECONDS: ${SESSION_EXPIRED_GRACE_SECONDS:-0}
     volumes:
       - ./data:/app/data:ro
+      - ./logs:/app/logs
     command: >
       sh -c "alembic upgrade head &&
              python -m scripts.seed_from_dashy --config $${DASHY_CONFIG_PATH} --deactivate-missing &&

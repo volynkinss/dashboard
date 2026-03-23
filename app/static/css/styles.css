@@ -33,8 +33,8 @@
     --font-size-clock-time: clamp(24px, 1.3vw + 14px, 42px);
     --font-size-clock-date: clamp(11px, 0.3vw + 10px, 14px);
 
-    --service-icon-size: calc(76px * var(--shortcut-scale));
-    --service-icon-inner-size: calc(48px * var(--shortcut-scale));
+    --service-icon-size: calc(100px * var(--shortcut-scale));
+    --service-icon-inner-size: calc(62px * var(--shortcut-scale));
     --sticky-offset: 108px;
     --topbar-control-height: 34px;
 }
@@ -556,7 +556,7 @@ body::before {
 }
 
 .service-icon-fa {
-    font-size: calc(40px * var(--shortcut-scale));
+    font-size: calc(64px * var(--shortcut-scale));
     line-height: 1;
     display: inline-block;
 }

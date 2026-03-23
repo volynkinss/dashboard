@@ -76,8 +76,11 @@
         </form>
         {% endif %}
         <div class="lang-switch">
-            <a href="{{ lang_ru_url }}" class="lang-link {% if lang == 'ru' %}lang-link-active{% endif %}" hreflang="ru" {% if lang == 'ru' %}aria-current="page"{% endif %}>RU</a>
-            <a href="{{ lang_en_url }}" class="lang-link {% if lang == 'en' %}lang-link-active{% endif %}" hreflang="en" {% if lang == 'en' %}aria-current="page"{% endif %}>EN</a>
+            {% if lang == 'en' %}
+            <a href="{{ lang_ru_url }}" class="lang-link" hreflang="ru">RU</a>
+            {% else %}
+            <a href="{{ lang_en_url }}" class="lang-link" hreflang="en">EN</a>
+            {% endif %}
         </div>
         <button
             type="button"

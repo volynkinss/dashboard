@@ -62,6 +62,7 @@ Access model:
    cp docker-compose.example.yml docker-compose.yml
    ```
    `docker-compose.yml` is local and ignored by Git, so you can change it freely.
+   `app` service reads runtime settings from `.env` via Compose `env_file`.
 2. Put your real Dashy YAML to:
    - `data/dashy.yaml`
 3. Fill Keycloak values in `.env`.

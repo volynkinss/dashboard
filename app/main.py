@@ -36,8 +36,8 @@ def _extract_origin(url: str) -> str | None:
 
 def _build_content_security_policy() -> str:
     form_action_sources = ["'self'"]
-    style_sources = ["'self'", "https://cdnjs.cloudflare.com"]
-    font_sources = ["'self'", "https://cdnjs.cloudflare.com"]
+    style_sources = ["'self'"]
+    font_sources = ["'self'"]
 
     if not settings.is_mock_auth_mode:
         keycloak_origin = _extract_origin(settings.keycloak_issuer_url)

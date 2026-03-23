@@ -330,27 +330,6 @@
         });
     }
 
-    function detectFontAwesomeLoaded() {
-        var probe = document.createElement("i");
-        probe.className = "fa fa-envelope-o";
-        probe.style.position = "absolute";
-        probe.style.visibility = "hidden";
-        probe.style.pointerEvents = "none";
-        probe.style.left = "-9999px";
-        document.body.appendChild(probe);
-
-        var family = "";
-        try {
-            family = window.getComputedStyle(probe).fontFamily || "";
-        } finally {
-            probe.remove();
-        }
-
-        if (/fontawesome|font awesome/i.test(family)) {
-            document.documentElement.classList.add("icon-fa-ready");
-        }
-    }
-
     function updateStickyOffset() {
         var root = document.documentElement;
         var topbar = document.querySelector(".topbar");
@@ -440,9 +419,7 @@
         setupClocks();
         setupImageIconFallback();
         setupConfigReloadStatusModal();
-        detectFontAwesomeLoaded();
         scheduleStickyOffsetUpdate();
-        window.setTimeout(detectFontAwesomeLoaded, 300);
         window.setTimeout(scheduleStickyOffsetUpdate, 120);
         window.addEventListener("resize", scheduleStickyOffsetUpdate);
         window.addEventListener("scroll", scheduleStickyOffsetUpdate, { passive: true });

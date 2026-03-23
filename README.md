@@ -113,7 +113,7 @@ sections:
 If one language is missing, the app falls back to available text.
 
 Dashy icons are imported too:
-- `fa ...` values (for example `fa fa-windows fa-2x`) are rendered as Font Awesome icons.
+- `fa ...` values (for example `fa fa-windows fa-2x`) are rendered by bundled local Font Awesome assets (`/static/vendor/font-awesome/...`), no external CDN required.
 - URL / path icons (for example `https://.../icon.svg` or `/assets/icon.png`) are rendered as images.
 - `favicon` or `favicon:<url>` is resolved via domain favicon lookup.
 

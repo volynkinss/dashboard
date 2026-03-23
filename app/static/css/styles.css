@@ -558,7 +558,7 @@ body::before {
 .service-icon-fa {
     font-size: calc(40px * var(--shortcut-scale));
     line-height: 1;
-    display: none;
+    display: inline-block;
 }
 
 .service-icon-image {
@@ -591,11 +591,7 @@ body::before {
     display: inline-flex;
 }
 
-.icon-fa-ready .service-icon-fa-mode .service-icon-fa {
-    display: inline-block;
-}
-
-.icon-fa-ready .service-icon-fa-mode .service-icon-fallback {
+.service-icon-fa-mode .service-icon-fallback {
     display: none;
 }
 

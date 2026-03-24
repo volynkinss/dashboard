@@ -37,9 +37,8 @@ class Settings(BaseSettings):
     keycloak_post_logout_redirect_uri: str = "http://localhost:8000/"
     keycloak_scopes: str = "openid profile email groups"
     keycloak_groups_claim: str = "groups"
-    keycloak_groups_prefix: str = "/"
+    keycloak_groups_prefix: str = ""
     keycloak_roles_client_id: str | None = None
-    keycloak_allowed_signing_algs: str = "RS256"
     admin_email: str = ""
     dashy_config_path: str = "/app/data/dashy.yaml"
 
@@ -56,7 +55,7 @@ class Settings(BaseSettings):
     mock_public_roles: str = ""
     mock_public_groups: str = ""
 
-    trusted_hosts: str = "localhost,127.0.0.1,0.0.0.0,::1,host.docker.internal"
+    trusted_hosts: str = "*"
     trusted_proxy_networks: str = "127.0.0.0/8,::1/128"
     internal_networks: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128,fc00::/7,fe80::/10"
     internal_only_category_names: str = "Корпоративные Web-приложения,Corporate Web Applications"
@@ -65,11 +64,11 @@ class Settings(BaseSettings):
     audit_retention_days: int = Field(default=30, ge=1)
     audit_catalog_view_min_interval_seconds: int = Field(default=300, ge=0)
     activity_log_enabled: bool = True
-    activity_log_file_path: str = "/tmp/catalog_activity.log"
-    activity_log_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024)
+    activity_log_file_path: str = "logs/catalog_activity.log"
     activity_log_backup_count: int = Field(default=10, ge=1)
     db_maintenance_enabled: bool = True
     db_maintenance_interval_seconds: int = Field(default=300, ge=30)
+    session_ttl_seconds: int = Field(default=0, ge=0)
     session_expired_grace_seconds: int = Field(default=0, ge=0)
     session_last_seen_update_interval_seconds: int = Field(default=120, ge=0)
     log_level: str = "INFO"
@@ -100,10 +99,6 @@ class Settings(BaseSettings):
     @property
     def scopes_list(self) -> list[str]:
         return [item.strip() for item in self.keycloak_scopes.split() if item.strip()]
-
-    @property
-    def keycloak_allowed_signing_algs_list(self) -> list[str]:
-        return [item.strip().upper() for item in self.keycloak_allowed_signing_algs.split(",") if item.strip()]
 
     @property
     def admin_email_normalized(self) -> str | None:

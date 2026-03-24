@@ -34,23 +34,20 @@ class KeycloakOIDCClient:
         self._jwks: dict | None = None
 
     async def _resolve_allowed_signing_algorithms(self) -> list[str]:
-        configured_algorithms = self.settings.keycloak_allowed_signing_algs_list or ["RS256"]
-
         metadata = await self._get_metadata()
         metadata_supported = metadata.get("id_token_signing_alg_values_supported")
         if not isinstance(metadata_supported, list):
-            return configured_algorithms
+            raise OIDCError("OIDC metadata is missing supported signing algorithms")
 
-        supported_algorithms = {
+        supported_algorithms = [
             str(value).strip().upper()
             for value in metadata_supported
             if isinstance(value, str) and str(value).strip()
-        }
+        ]
         if not supported_algorithms:
-            return configured_algorithms
+            raise OIDCError("OIDC metadata has empty supported signing algorithms")
 
-        matched_algorithms = [alg for alg in configured_algorithms if alg in supported_algorithms]
-        return matched_algorithms or configured_algorithms
+        return supported_algorithms
 
     async def _get_metadata(self) -> dict:
         if self._metadata is not None:
@@ -219,11 +216,6 @@ class KeycloakOIDCClient:
             raise OIDCError("Token missing signing algorithm")
 
         allowed_algorithms = await self._resolve_allowed_signing_algorithms()
-        if token_alg not in allowed_algorithms:
-            raise OIDCError(
-                "Token signing algorithm is not allowed "
-                f"(alg={token_alg}, allowed={allowed_algorithms})"
-            )
 
         jwks = await self._get_jwks()
         key = next((item for item in jwks.get("keys", []) if item.get("kid") == kid), None)

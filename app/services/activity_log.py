@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from logging.handlers import RotatingFileHandler
+from datetime import time as datetime_time
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -20,6 +21,8 @@ _activity_logger_lock = Lock()
 _activity_logger: logging.Logger | None = None
 _activity_logger_path: str | None = None
 _activity_logger_failed_path: str | None = None
+# Moscow is UTC+3 year-round; 00:00 MSK equals 21:00 UTC of the previous day.
+_MSK_MIDNIGHT_UTC = datetime_time(hour=21, minute=0)
 
 
 def _build_activity_logger(settings: Settings) -> logging.Logger:
@@ -35,11 +38,14 @@ def _build_activity_logger(settings: Settings) -> logging.Logger:
         except Exception:
             pass
 
-    file_handler = RotatingFileHandler(
+    file_handler = TimedRotatingFileHandler(
         filename=target_path,
-        maxBytes=settings.activity_log_max_bytes,
+        when="midnight",
+        interval=1,
         backupCount=settings.activity_log_backup_count,
         encoding="utf-8",
+        utc=True,
+        atTime=_MSK_MIDNIGHT_UTC,
     )
     file_handler.setFormatter(logging.Formatter("%(message)s"))
 

@@ -73,7 +73,7 @@ Access model:
    docker compose up --build
    ```
 5. Open [http://localhost:8000](http://localhost:8000).
-6. If you see `Invalid host header`, add your host to `TRUSTED_HOSTS` or set `TRUSTED_HOSTS=*` for local development only.
+6. By default host validation allows any host (`TRUSTED_HOSTS=*`). For stricter production setup, set explicit hostnames.
 7. Compose startup imports `/app/data/dashy.yaml` automatically and runs with `--deactivate-missing`, so old entries not present in YAML are deactivated.
 
 ## Dashy Import
@@ -208,6 +208,7 @@ Environment variables:
 - `AUDIT_CATALOG_VIEW_MIN_INTERVAL_SECONDS` - minimum interval between `catalog_view` events for the same user (default `300`).
 - `DB_MAINTENANCE_ENABLED` - enable periodic maintenance (default `true`).
 - `DB_MAINTENANCE_INTERVAL_SECONDS` - maintenance run interval (default `300`).
+- `SESSION_TTL_SECONDS` - app session TTL in seconds. `0` means use Keycloak access token expiration. Any value `>0` forces this TTL regardless of token `exp` (default `0`).
 - `SESSION_EXPIRED_GRACE_SECONDS` - additional grace period before deleting expired sessions (default `0`).
 - `SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS` - minimum interval between `last_seen_at` updates for one session (default `120`).
 
@@ -224,19 +225,18 @@ The app can write structured user-action events to a rotating log file:
 
 Environment variables:
 - `ACTIVITY_LOG_ENABLED` - enable file logging (default `true`).
-- `ACTIVITY_LOG_FILE_PATH` - target log file path (default `/tmp/catalog_activity.log`).
-- `ACTIVITY_LOG_MAX_BYTES` - rotate when file exceeds this size (default `20971520`, 20 MB).
-- `ACTIVITY_LOG_BACKUP_COUNT` - number of rotated files to keep (default `10`).
+- `ACTIVITY_LOG_FILE_PATH` - target log file path (default `logs/catalog_activity.log`).
+- `ACTIVITY_LOG_BACKUP_COUNT` - number of daily rotated files to keep (default `10`).
+- Rotation schedule is daily at `00:00` Moscow time (MSK, UTC+3).
 
 For Docker Compose persistence, mount a writable logs directory (example in `docker-compose.example.yml`):
 - `./logs:/app/logs`
-- `ACTIVITY_LOG_FILE_PATH=/app/logs/catalog_activity.log`
+- default `ACTIVITY_LOG_FILE_PATH=logs/catalog_activity.log` already writes to `/app/logs/...` inside container
 - Ensure `./logs` is writable for container user (`appuser`), otherwise file logging will be skipped.
 
 ## Production Hardening Checklist
 - Set `SESSION_COOKIE_SECURE=true` behind HTTPS.
 - Rotate `SECRET_KEY` and `KEYCLOAK_CLIENT_SECRET` using secret manager.
-- Keep `KEYCLOAK_ALLOWED_SIGNING_ALGS` restricted to approved algorithms (for example `RS256`).
 - Restrict `TRUSTED_HOSTS` to real hostnames.
 - Add database backups and retention policy.
 - Keep periodic cleanup for expired `user_sessions` and old `audit_events` enabled.

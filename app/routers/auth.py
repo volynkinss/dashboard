@@ -146,6 +146,13 @@ def _build_mock_principal(settings: Settings, profile: str) -> PrincipalData:
     )
 
 
+def _resolve_session_expires_at(*, settings: Settings, token_expires_at: datetime) -> datetime:
+    custom_ttl_seconds = max(0, settings.session_ttl_seconds)
+    if custom_ttl_seconds == 0:
+        return token_expires_at
+    return datetime.now(timezone.utc) + timedelta(seconds=custom_ttl_seconds)
+
+
 def _issue_session_response(
     *,
     db: Session,
@@ -154,22 +161,35 @@ def _issue_session_response(
     principal: PrincipalData,
     redirect_target: str,
     event_type: str,
+    session_expires_at: datetime | None = None,
 ) -> RedirectResponse:
-    session = create_user_session(db, principal, autocommit=False)
-
-    ttl_seconds = max(1, int((principal.expires_at - datetime.now(timezone.utc)).total_seconds()))
-    response = RedirectResponse(url=redirect_target, status_code=303)
-    _set_session_cookie(response, settings=settings, session_id=session.session_id, ttl_seconds=ttl_seconds)
-
-    auth_session = AuthenticatedSession(
-        session_id=session.session_id,
+    effective_expires_at = session_expires_at or _resolve_session_expires_at(
+        settings=settings,
+        token_expires_at=principal.expires_at,
+    )
+    session_principal = PrincipalData(
         user_sub=principal.user_sub,
         username=principal.username,
         email=principal.email,
         roles=set(principal.roles),
         groups=set(principal.groups),
+        expires_at=effective_expires_at,
+    )
+    session = create_user_session(db, session_principal, autocommit=False)
+
+    ttl_seconds = max(1, int((effective_expires_at - datetime.now(timezone.utc)).total_seconds()))
+    response = RedirectResponse(url=redirect_target, status_code=303)
+    _set_session_cookie(response, settings=settings, session_id=session.session_id, ttl_seconds=ttl_seconds)
+
+    auth_session = AuthenticatedSession(
+        session_id=session.session_id,
+        user_sub=session_principal.user_sub,
+        username=session_principal.username,
+        email=session_principal.email,
+        roles=set(session_principal.roles),
+        groups=set(session_principal.groups),
         csrf_token=session.csrf_token,
-        expires_at=principal.expires_at,
+        expires_at=effective_expires_at,
     )
     write_audit_event(
         db,
@@ -354,6 +374,10 @@ async def callback(
     if principal.expires_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is already expired")
 
+    session_expires_at = _resolve_session_expires_at(
+        settings=settings,
+        token_expires_at=principal.expires_at,
+    )
     redirect_target = _sanitize_next_path(state_payload.get("next"))
     response = _issue_session_response(
         db=db,
@@ -362,8 +386,9 @@ async def callback(
         principal=principal,
         redirect_target=redirect_target,
         event_type="login_success",
+        session_expires_at=session_expires_at,
     )
-    ttl_seconds = max(1, int((principal.expires_at - datetime.now(timezone.utc)).total_seconds()))
+    ttl_seconds = max(1, int((session_expires_at - datetime.now(timezone.utc)).total_seconds()))
     id_token = token_response.get("id_token")
     if isinstance(id_token, str) and id_token:
         _set_id_token_hint_cookie(

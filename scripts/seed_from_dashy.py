@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -61,17 +62,39 @@ FA_DECORATOR_TOKENS = {
     "fa-stack-2x",
     "fa-inverse",
 }
+DEFAULT_DASHY_CONFIG_PATH = "/app/data/dashy.yaml"
+
+
+def _resolve_config_path(cli_value: str | None) -> str:
+    if cli_value is not None:
+        normalized_cli = cli_value.strip()
+        if normalized_cli:
+            return normalized_cli
+
+    env_value = os.getenv("DASHY_CONFIG_PATH")
+    if env_value:
+        normalized_env = env_value.strip()
+        if normalized_env:
+            return normalized_env
+
+    return DEFAULT_DASHY_CONFIG_PATH
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import Dashy YAML into SQL tables")
-    parser.add_argument("--config", required=True, help="Path to Dashy YAML config")
+    parser.add_argument(
+        "--config",
+        nargs="?",
+        help=f"Path to Dashy YAML config (default: {DEFAULT_DASHY_CONFIG_PATH})",
+    )
     parser.add_argument(
         "--deactivate-missing",
         action="store_true",
         help="Deactivate categories/services not present in config",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.config = _resolve_config_path(args.config)
+    return args
 
 
 def slugify(value: str, fallback: str) -> str:

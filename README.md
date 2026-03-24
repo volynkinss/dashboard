@@ -232,7 +232,8 @@ Environment variables:
 For Docker Compose persistence, mount a writable logs directory (example in `docker-compose.example.yml`):
 - `./logs:/app/logs`
 - default `ACTIVITY_LOG_FILE_PATH=logs/catalog_activity.log` already writes to `/app/logs/...` inside container
-- Ensure `./logs` is writable for container user (`appuser`), otherwise file logging will be skipped.
+- Container entrypoint creates/chowns the activity log path automatically at startup.
+- If bind mount ownership cannot be changed on your host, keep manual write permissions for runtime user.
 
 ## Production Hardening Checklist
 - Set `SESSION_COOKIE_SECURE=true` behind HTTPS.

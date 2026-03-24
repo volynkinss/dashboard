@@ -6,3 +6,4 @@ __pycache__/
 docker-compose.yml
 postgres_data/
 dashy.yaml
+logs/

@@ -690,12 +690,17 @@ body[data-theme="legacy"] .section-card {
     border: none;
 }
 
+body[data-theme="legacy"] .service-link,
+body[data-theme="legacy"] .clock-widget {
+    border: none;
+}
+
 body[data-theme="legacy"] .section-time .section-header h2 {
     font-size: calc(var(--font-size-section-title) * var(--font-scale));
 }
 
 body[data-theme="legacy"] .service-icon {
-    border: 0 solid rgba(196, 224, 246, 0.34);
+    border: none;
     box-shadow: none;
     color: #0057a6;
     background: none;

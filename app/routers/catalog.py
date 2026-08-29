@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
 from app.i18n import LANG_COOKIE_NAME, get_messages, normalize_language
+from app.models.service import Service
 from app.security.csrf import validate_csrf_token
 from app.security.network import is_request_from_internal_network
 from app.security.session_store import get_authenticated_session
@@ -195,8 +198,9 @@ def home(request: Request, db: Session = Depends(get_db)):
     write_audit_event(db, event_type="catalog_view", request=request, user=user)
 
     return templates.TemplateResponse(
-        "catalog.html",
-        {
+        request=request,
+        name="catalog.html",
+        context={
             "request": request,
             "app_name": settings.app_name,
             "username": user.username,
@@ -215,6 +219,44 @@ def home(request: Request, db: Session = Depends(get_db)):
             "config_reload_status_message": reload_status_message,
         },
     )
+
+
+@router.get("/assets/service-icon/{service_slug}")
+def service_icon(service_slug: str, request: Request, db: Session = Depends(get_db)):
+    settings = get_settings()
+    session_id = request.cookies.get(settings.session_cookie_name)
+    user = get_authenticated_session(db, session_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+    service = db.scalar(
+        select(Service).where(
+            Service.slug == service_slug,
+            Service.is_active.is_(True),
+        )
+    )
+    if service is None or not service.icon_url or not service.icon_url.startswith("localfile:"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Icon not found")
+
+    raw_path = service.icon_url.split(":", 1)[1].strip()
+    if not raw_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Icon not found")
+
+    icon_path = Path(raw_path)
+    try:
+        resolved_path = icon_path.resolve(strict=True)
+    except OSError as exc:
+        logger.debug("Local icon path cannot be resolved for %s: %s", service_slug, exc)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Icon not found") from exc
+
+    if not resolved_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Icon not found")
+
+    media_type, _ = mimetypes.guess_type(str(resolved_path))
+    if resolved_path.suffix.lower() == ".svg":
+        media_type = "image/svg+xml"
+
+    return FileResponse(path=str(resolved_path), media_type=media_type)
 
 
 @router.post("/config/reload")

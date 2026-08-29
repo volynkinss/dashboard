@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hmac
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -7,10 +8,14 @@ from functools import lru_cache
 from urllib.parse import urlencode
 
 import httpx
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 
 from app.config import Settings, get_settings
 from app.security.session_store import PrincipalData
+
+
+TRUSTED_SIGNING_ALGORITHMS = frozenset({"RS256"})
 
 
 class OIDCError(RuntimeError):
@@ -39,13 +44,14 @@ class KeycloakOIDCClient:
         if not isinstance(metadata_supported, list):
             raise OIDCError("OIDC metadata is missing supported signing algorithms")
 
-        supported_algorithms = [
+        metadata_algorithms = {
             str(value).strip().upper()
             for value in metadata_supported
             if isinstance(value, str) and str(value).strip()
-        ]
+        }
+        supported_algorithms = sorted(metadata_algorithms & TRUSTED_SIGNING_ALGORITHMS)
         if not supported_algorithms:
-            raise OIDCError("OIDC metadata has empty supported signing algorithms")
+            raise OIDCError("OIDC provider does not support a trusted signing algorithm")
 
         return supported_algorithms
 
@@ -195,6 +201,29 @@ class KeycloakOIDCClient:
             return family_name
         return None
 
+    @staticmethod
+    def _validate_at_hash(
+        claims: dict,
+        *,
+        access_token: str | None,
+        signing_algorithm: str,
+    ) -> None:
+        token_hash = claims.get("at_hash")
+        if token_hash is None:
+            return
+        if not isinstance(token_hash, str) or not access_token:
+            raise jwt.InvalidTokenError("Unable to verify at_hash claim")
+
+        try:
+            algorithm = jwt.get_algorithm_by_name(signing_algorithm)
+            digest = algorithm.compute_hash_digest(access_token.encode("ascii"))
+        except (NotImplementedError, UnicodeEncodeError) as exc:
+            raise jwt.InvalidTokenError("Unable to calculate at_hash claim") from exc
+
+        expected_hash = base64.urlsafe_b64encode(digest[: len(digest) // 2]).rstrip(b"=").decode("ascii")
+        if not hmac.compare_digest(token_hash, expected_hash):
+            raise jwt.InvalidTokenError("at_hash claim does not match access token")
+
     async def _decode_token(
         self,
         token: str,
@@ -207,7 +236,7 @@ class KeycloakOIDCClient:
             header = jwt.get_unverified_header(token)
             kid = header.get("kid")
             token_alg = str(header.get("alg", "")).strip().upper()
-        except JWTError as exc:
+        except PyJWTError as exc:
             raise OIDCError("Invalid token header") from exc
 
         if not kid:
@@ -216,6 +245,8 @@ class KeycloakOIDCClient:
             raise OIDCError("Token missing signing algorithm")
 
         allowed_algorithms = await self._resolve_allowed_signing_algorithms()
+        if token_alg not in allowed_algorithms:
+            raise OIDCError(f"Unsupported token signing algorithm: {token_alg}")
 
         jwks = await self._get_jwks()
         key = next((item for item in jwks.get("keys", []) if item.get("kid") == kid), None)
@@ -234,21 +265,29 @@ class KeycloakOIDCClient:
             if normalized_issuer and normalized_issuer not in issuer_candidates:
                 issuer_candidates.append(normalized_issuer)
 
-        options = {"verify_aud": verify_audience}
-        last_error: JWTError | None = None
+        options = {
+            "verify_aud": verify_audience,
+            "verify_iat": False,
+        }
+        last_error: PyJWTError | None = None
         for issuer in issuer_candidates:
             try:
+                signing_key = jwt.PyJWK.from_dict(key)
                 claims = jwt.decode(
                     token,
-                    key,
+                    signing_key,
                     algorithms=allowed_algorithms,
                     audience=audience,
                     issuer=issuer,
                     options=options,
+                )
+                self._validate_at_hash(
+                    claims,
                     access_token=access_token,
+                    signing_algorithm=token_alg,
                 )
                 return claims
-            except JWTError as exc:
+            except PyJWTError as exc:
                 last_error = exc
 
         if last_error is None:

@@ -36,6 +36,21 @@ cp .env.example .env
 
 - `data/dashy.yaml`
 
+Для локальной иконки ярлыка в `dashy.yaml` используйте `file://` URI:
+
+```yaml
+icon: file:///app/data/icons/mail.svg
+```
+
+Также поддерживается абсолютный путь к локальному файлу:
+
+```yaml
+icon: /app/data/icons/mail.svg
+```
+
+Если приложение запущено в Docker, путь должен существовать внутри контейнера
+(обычно через volume, например `./data:/app/data`).
+
 ## 3) Запуск проекта
 
 1. Создайте локальный compose-файл:

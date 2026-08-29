@@ -5,7 +5,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 if __package__ is None or __package__ == "":
     project_root = Path(__file__).resolve().parents[1]
@@ -172,6 +172,40 @@ def _build_favicon_url(raw_url: str) -> str | None:
     return f"https://icons.duckduckgo.com/ip3/{hostname}.ico"
 
 
+def _extract_local_file_path(value: str) -> str | None:
+    parsed = urlparse(value)
+    if parsed.scheme.lower() != "file":
+        return None
+    if parsed.netloc and parsed.netloc.lower() != "localhost":
+        return None
+
+    raw_path = unquote(parsed.path or "")
+    if not raw_path:
+        return None
+
+    # Normalize file URI Windows paths: /C:/foo -> C:/foo
+    if re.match(r"^/[A-Za-z]:/", raw_path):
+        return raw_path[1:]
+
+    return raw_path
+
+
+def _extract_existing_absolute_file_path(value: str) -> str | None:
+    candidate = Path(value.strip())
+    if not candidate.is_absolute():
+        return None
+
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError:
+        return None
+
+    if not resolved.is_file():
+        return None
+
+    return str(resolved)
+
+
 def resolve_icon_fields(icon_value: str | None, *, item_url: str, title: str) -> tuple[str, str | None]:
     icon_code = icon_symbol(icon_value, title)
     if not isinstance(icon_value, str):
@@ -200,6 +234,18 @@ def resolve_icon_fields(icon_value: str | None, *, item_url: str, title: str) ->
         target_url = parts[1].strip() if len(parts) == 2 else ""
         favicon = _build_favicon_url(target_url)
         return icon_code, favicon
+
+    local_file_path = _extract_local_file_path(raw_value)
+    if local_file_path:
+        return icon_code, f"localfile:{local_file_path}"
+
+    absolute_local_file_path = _extract_existing_absolute_file_path(raw_value)
+    if absolute_local_file_path:
+        return icon_code, f"localfile:{absolute_local_file_path}"
+
+    parsed_icon = urlparse(raw_value)
+    if parsed_icon.scheme.lower() == "file":
+        return icon_code, None
 
     if _looks_like_icon_url(raw_value):
         return icon_code, raw_value

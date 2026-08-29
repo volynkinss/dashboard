@@ -32,14 +32,16 @@
             <a class="service-link" href="{{ service.url }}" target="_blank" rel="noopener noreferrer" title="{{ service.description or service.name }}" aria-label="{{ service.description or service.name }}">
                 {% set icon_value = service.icon_url or '' %}
                 {% set is_fa_icon = icon_value.startswith('fa:') %}
-                {% set is_image_icon = icon_value and not is_fa_icon %}
+                {% set is_local_file_icon = icon_value.startswith('localfile:') %}
+                {% set resolved_icon_value = '/assets/service-icon/' ~ service.slug if is_local_file_icon else icon_value %}
+                {% set is_image_icon = resolved_icon_value and not is_fa_icon %}
                 {% set fallback_icon = service.icon_emoji or service.name[:1] or '?' %}
                 <span class="service-icon {% if is_fa_icon %}service-icon-fa-mode{% elif is_image_icon %}service-icon-image-mode{% else %}service-icon-fallback-mode{% endif %}">
                     {% if is_fa_icon %}
                     <i class="service-icon-fa {{ icon_value[3:] }}" aria-hidden="true"></i>
                     <span class="service-icon-fallback">{{ fallback_icon }}</span>
                     {% elif is_image_icon %}
-                    <img class="service-icon-image" src="{{ icon_value }}" alt="" loading="lazy" referrerpolicy="no-referrer">
+                    <img class="service-icon-image" src="{{ resolved_icon_value }}" alt="" loading="lazy" referrerpolicy="no-referrer">
                     <span class="service-icon-fallback">{{ fallback_icon }}</span>
                     {% else %}
                     <span class="service-icon-fallback">{{ fallback_icon }}</span>

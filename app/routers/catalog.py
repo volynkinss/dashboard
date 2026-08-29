@@ -195,8 +195,9 @@ def home(request: Request, db: Session = Depends(get_db)):
     write_audit_event(db, event_type="catalog_view", request=request, user=user)
 
     return templates.TemplateResponse(
-        "catalog.html",
-        {
+        request=request,
+        name="catalog.html",
+        context={
             "request": request,
             "app_name": settings.app_name,
             "username": user.username,
